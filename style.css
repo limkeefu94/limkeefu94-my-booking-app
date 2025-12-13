@@ -1,0 +1,116 @@
+/**
+ * 美睫预约系统 - CSS 样式表
+ * 定义应用的全局样式、动画、组件样式等
+ */
+
+/* ==================== 基础样式 ==================== */
+
+/* 全局盒模型设置 */
+body {
+    box-sizing: border-box;
+}
+
+/* ==================== 模态框样式 ==================== */
+
+/* 模态框背景 - 半透明深色背景 */
+.modal-backdrop {
+    background-color: rgba(74, 30, 58, 0.7);  /* 深紫色半透明 */
+    backdrop-filter: blur(4px);                /* 背景模糊效果 */
+}
+
+/* ==================== 提示框 (Toast) 动画 ==================== */
+
+/* 提示框基础样式 */
+.toast {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* 提示框进入动画 - 从上方滑入 */
+@keyframes slideIn {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ==================== 服务卡片样式 ==================== */
+
+/* 服务卡片 - 鼠标悬停效果 */
+.service-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+/* 服务卡片悬停效果 */
+.service-card:hover {
+    transform: translateY(-8px);                              /* 向上移动 8px */
+    box-shadow: 0 12px 24px rgba(217, 70, 239, 0.2);        /* 增加阴影 */
+    border-color: #f472b6;                                   /* 边框变为粉红色 */
+}
+
+/* ==================== 按钮样式 ==================== */
+
+/* 主要按钮 - 平滑过渡效果 */
+.btn-primary {
+    transition: all 0.3s ease;
+}
+
+/* 主要按钮悬停效果 */
+.btn-primary:hover {
+    transform: translateY(-2px);                             /* 向上移动 2px */
+    box-shadow: 0 6px 20px rgba(217, 70, 239, 0.4);        /* 增加阴影 */
+}
+
+/* ==================== 输入框焦点样式 ==================== */
+
+/* 输入框、文本域、选择框焦点效果 */
+input:focus, 
+textarea:focus, 
+select:focus {
+    outline: none;
+    border-color: #d946ef !important;                       /* 主色边框 */
+    box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.1);         /* 浅紫色光晕 */
+}
+
+/* ==================== 会员徽章样式 ==================== */
+
+/* 会员等级徽章 */
+.membership-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;    /* 完全圆角 */
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ==================== 统计柱状条 ==================== */
+
+/* 统计数据柱状条 - 用于显示百分比 */
+.stat-bar {
+    height: 100%;
+    transition: width 0.5s ease;   /* 宽度变化平滑过渡 */
+    border-radius: 4px;
+}
+
+/* ==================== 星级评分 ==================== */
+
+/* 填充星（已评分） */
+.star-rating {
+    color: #fbbf24;  /* 黄色 */
+}
+
+/* 空星（未评分） */
+.star-empty {
+    color: #d1d5db;  /* 灰色 */
+}
+
+/* ==================== 视图转换动画 ==================== */
+
+/* 页面转换效果（View Transition API） */
+@view-transition {
+    navigation: auto;
+}
