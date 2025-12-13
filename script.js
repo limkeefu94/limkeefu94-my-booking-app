@@ -808,7 +808,7 @@ window.dataSdk = {
                             <select id="filterSelect" class="px-4 py-3 rounded-lg border-2"
                                 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
                                 <option value="all" ${filterStatus === 'all' ? 'selected' : ''}>全部状态</option>
-                                <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>����确认</option>
+                                <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>待确认</option>
                                 <option value="completed" ${filterStatus === 'completed' ? 'selected' : ''}>已完成</option>
                                 <option value="cancelled" ${filterStatus === 'cancelled' ? 'selected' : ''}>已取消</option>
                             </select>
@@ -1653,9 +1653,9 @@ window.dataSdk = {
                                 积分使用说明
                             </h4>
                             <div class="space-y-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8;">
-                                <p>💰 ���分兑换: ${settings.points_to_rm_rate || 10}积分 = 1 RM</p>
+                                <p>💰 积分兑换: ${settings.points_to_rm_rate || 10}积分 = 1 RM</p>
                                 <p>✨ 您可以在预约时使用积分抵扣费用</p>
-                                <p>🎁 每次完成服务可获得相应���分奖励</p>
+                                <p>🎁 每次完成服务可获得相应积分奖励</p>
                             </div>
                         </div>
                     </div>
@@ -1830,7 +1830,7 @@ window.dataSdk = {
                 btn.addEventListener('click', () => {
                     const post = posts.find(p => p.id === btn.dataset.id);
                     if (post) {
-                        showConfirmModal(config, '确定���删除这条动态吗？', async () => {
+                        showConfirmModal(config, '确定删除这条动态吗？', async () => {
                             await deleteRecord(post);
                         });
                     }
@@ -2019,7 +2019,7 @@ window.dataSdk = {
                         
                         <div class="mb-4">
                             <label for="newCustomerPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                ���始密码
+                                初始密码
                             </label>
                             <input type="password" id="newCustomerPassword" required
                                 class="w-full px-4 py-3 rounded-lg border-2"
@@ -2218,7 +2218,7 @@ window.dataSdk = {
                             </button>
                             <button type="button" id="cancelPostBtn" class="flex-1 py-3 rounded-lg"
                                 style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">
-                                取���
+                                取消
                             </button>
                         </div>
                     </form>
@@ -2289,7 +2289,7 @@ window.dataSdk = {
                         
                         <div class="mb-4">
                             <label for="appointmentDate" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                预约������
+                                预约日期
                             </label>
                             <input type="date" id="appointmentDate" required
                                 class="w-full px-4 py-3 rounded-lg border-2"
@@ -2654,9 +2654,9 @@ window.dataSdk = {
                         
                         <div class="mb-6">
                             <label for="editProfilePassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                新密码 (���空保持不变)
+                                新密码 (留空保持不变)
                             </label>
-                            <input type="password" id="editProfilePassword" placeholder="��空保持当前密码"
+                            <input type="password" id="editProfilePassword" placeholder="留空保持当前密码"
                                 class="w-full px-4 py-3 rounded-lg border-2"
                                 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
                         </div>
