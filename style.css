@@ -114,3 +114,30 @@ select:focus {
 @view-transition {
     navigation: auto;
 }
+/* ==================== 新增/修改：Logo 和背景样式 (方案B) ==================== */
+
+/* 1. 登录页面背景 - 改为干净的米色渐变 */
+.login-page-bg {
+    /* 这里的颜色是取自你的Logo背景色，营造一体感 */
+    background: linear-gradient(135deg, #FFF9F0 0%, #FFF5E6 100%);
+    position: relative;
+}
+
+/* 2. 登录页中间的大圆 Logo 样式 */
+.login-main-logo {
+    width: 220px;          /* Logo 大小，可调整 */
+    height: 220px;
+    object-fit: contain;   /* 保持图片比例 */
+    border-radius: 50%;    /* 强制变圆 (万一没抠干净也能救一下) */
+    margin: 0 auto 16px;   /* 居中，且距离下方文字 24px */
+    display: block;        /* 块级元素，方便居中 */
+    /* 加一点淡淡的阴影，更有悬浮感 */
+    box-shadow: 0 10px 20px rgba(74, 30, 58, 0.1); 
+}
+
+/* 3. 登录后左上角的 Header Logo 样式 */
+.header-logo-img {
+    height: 60px;          /* 顶部导航栏 Logo 高度 */
+    width: auto;
+    object-fit: contain;
+}

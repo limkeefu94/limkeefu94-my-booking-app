@@ -4,9 +4,19 @@
 window.elementSdk = {
     config: {
         // 这里填你原来的默认配置
-        primary_action_color: '#d946ef',
-        background_color: '#fdf2f8',
-        // ... 其他配置
+        background_color: '#FFF9F0', 
+        
+        surface_color: '#ffffff',
+        text_color: '#4a1e3a',
+        
+        // 【这里必须改】按钮颜色改这里！
+        primary_action_color: '#B48E66', 
+        
+        secondary_action_color: '#f472b6',
+        font_family: 'Playfair Display',
+        font_size: 16,
+        app_title: 'Gem Brow 美睫美眉',
+        posts_title: '店铺动态'
     },
     init: async () => console.log('Simulated Element SDK Ready')
 };
@@ -62,7 +72,7 @@ window.elementSdk = {
         secondary_action_color: '#f472b6',
         font_family: 'Playfair Display',
         font_size: 16,
-        app_title: 'Gem Brow 美睫美眉',
+
         posts_title: '店铺动态'
     },
     init: async (options) => { console.log('SDK Ready'); if(options.onConfigChange) options.onConfigChange(window.elementSdk.config); }
@@ -92,10 +102,11 @@ window.dataSdk = {
         let filterStatus = 'all';
         
         const defaultConfig = {
-            background_color: '#fdf2f8',
+            background_color: '#FFF9F0', 
+    
             surface_color: '#ffffff',
             text_color: '#4a1e3a',
-            primary_action_color: '#d946ef',
+            primary_action_color: '#1F2937', // 按钮还是粉色，保持品牌感
             secondary_action_color: '#f472b6',
             font_family: 'Playfair Display',
             font_size: 16,
@@ -487,98 +498,96 @@ window.dataSdk = {
             renderMainApp(app, config, services, bookings, posts, customers);
         }
         
-        function renderLoginPage(app, config) {
-            app.innerHTML = `
-                <div class="min-h-full flex items-center justify-center p-6" style="background: linear-gradient(135deg, ${config.background_color} 0%, #ffffff 100%);">
-                    <div class="max-w-md w-full">
-                        <div class="text-center mb-8">
-                            <h1 class="mb-2" style="font-size: ${config.font_size * 2.5}px; font-weight: 700; background: linear-gradient(135deg, ${config.primary_action_color} 0%, ${config.secondary_action_color} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                                ${config.app_title}
-                            </h1>
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.7;">
-                                专业美睫美眉服务
-                            </p>
-                        </div>
-                        
-                        <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); padding: 32px; border: 3px solid ${config.primary_action_color};">
-                            ${showRegisterForm ? `
-                                <h2 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">注册新账户</h2>
-                                <form id="registerForm">
-                                    <div class="mb-4">
-                                        <label for="regUsername" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                            用户名
-                                        </label>
-                                        <input type="text" id="regUsername" required
-                                            class="w-full px-4 py-3 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                    <div class="mb-4">
-                                        <label for="regEmail" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                            邮箱
-                                        </label>
-                                        <input type="email" id="regEmail" required
-                                            class="w-full px-4 py-3 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                    <div class="mb-6">
-                                        <label for="regPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                            密码
-                                        </label>
-                                        <input type="password" id="regPassword" required
-                                            class="w-full px-4 py-3 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                    
-                                    <button type="submit" class="w-full btn-primary py-3 rounded-lg font-semibold mb-4"
-                                        style="font-family: Lato, sans-serif; background-color: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                        注册
-                                    </button>
-                                    
-                                    <button type="button" id="showLoginBtn" class="w-full py-3 rounded-lg"
-                                        style="font-family: Lato, sans-serif; background-color: transparent; color: ${config.primary_action_color}; font-size: ${config.font_size}px; border: 2px solid ${config.primary_action_color};">
-                                        返回登录
-                                    </button>
-                                </form>
-                            ` : `
-                                <h2 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">登录</h2>
-                                <form id="loginForm">
-                                    <div class="mb-4">
-                                        <label for="loginUsername" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                            用户名
-                                        </label>
-                                        <input type="text" id="loginUsername" required
-                                            class="w-full px-4 py-3 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                    <div class="mb-4">
-                                        <label for="loginPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                            密码
-                                        </label>
-                                        <input type="password" id="loginPassword" required
-                                            class="w-full px-4 py-3 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                    
-                                    <div class="flex gap-4 mb-6" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px;">
-                                        <button type="button" id="showRegisterBtn" style="color: ${config.primary_action_color}; font-weight: 600; background: none; border: none; cursor: pointer; padding: 0;">
-                                            注册账户
-                                        </button>
-                                        <span style="color: ${config.text_color}; opacity: 0.3;">|</span>
-                                        <button type="button" id="guestBtn" style="color: ${config.primary_action_color}; font-weight: 600; background: none; border: none; cursor: pointer; padding: 0;">
-                                            游客进入
-                                        </button>
-                                    </div>
-                                    
-                                    <button type="submit" class="w-full btn-primary py-3 rounded-lg font-semibold"
-                                        style="font-family: Lato, sans-serif; background-color: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                        登录
-                                    </button>
-                                </form>
-                            `}
-                        </div>
-                    </div>
+function renderLoginPage(app, config) {
+    app.innerHTML = `
+        <div class="min-h-full flex items-center justify-center p-6 login-page-bg">
+            <div class="max-w-md w-full">
+                
+                <img src="./assets/login_bg.png" alt="Logo" class="login-main-logo">
+
+                  <p class="text-center mb-8" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.7; font-weight: 600;">
+                        JB专业美睫纹绣师Gennie
+                 </p>
+                
+                <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); padding: 32px; border: 3px solid ${config.primary_action_color};">
+                    ${showRegisterForm ? `
+                        <h2 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">注册新账户</h2>
+                        <form id="registerForm">
+                            <div class="mb-4">
+                                <label for="regUsername" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                    用户名
+                                </label>
+                                <input type="text" id="regUsername" required
+                                    class="w-full px-4 py-3 rounded-lg border-2"
+                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                            </div>
+                            <div class="mb-4">
+                                <label for="regEmail" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                    邮箱
+                                </label>
+                                <input type="email" id="regEmail" required
+                                    class="w-full px-4 py-3 rounded-lg border-2"
+                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                            </div>
+                            <div class="mb-6">
+                                <label for="regPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                    密码
+                                </label>
+                                <input type="password" id="regPassword" required
+                                    class="w-full px-4 py-3 rounded-lg border-2"
+                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                            </div>
+                            
+                            <button type="submit" class="w-full btn-primary py-3 rounded-lg font-semibold mb-4"
+                                style="font-family: Lato, sans-serif; background-color: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+                                注册
+                            </button>
+                            
+                            <button type="button" id="showLoginBtn" class="w-full py-3 rounded-lg"
+                                style="font-family: Lato, sans-serif; background-color: transparent; color: ${config.primary_action_color}; font-size: ${config.font_size}px; border: 2px solid ${config.primary_action_color};">
+                                返回登录
+                            </button>
+                        </form>
+                    ` : `
+                        <h2 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">登录</h2>
+                        <form id="loginForm">
+                            <div class="mb-4">
+                                <label for="loginUsername" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                    用户名
+                                </label>
+                                <input type="text" id="loginUsername" required
+                                    class="w-full px-4 py-3 rounded-lg border-2"
+                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                            </div>
+                            <div class="mb-4">
+                                <label for="loginPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                    密码
+                                </label>
+                                <input type="password" id="loginPassword" required
+                                    class="w-full px-4 py-3 rounded-lg border-2"
+                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                            </div>
+                            
+                            <div class="flex gap-4 mb-6" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px;">
+                                <button type="button" id="showRegisterBtn" style="color: ${config.primary_action_color}; font-weight: 600; background: none; border: none; cursor: pointer; padding: 0;">
+                                    注册账户
+                                </button>
+                                <span style="color: ${config.text_color}; opacity: 0.3;">|</span>
+                                <button type="button" id="guestBtn" style="color: ${config.primary_action_color}; font-weight: 600; background: none; border: none; cursor: pointer; padding: 0;">
+                                    游客进入
+                                </button>
+                            </div>
+                            
+                            <button type="submit" class="w-full btn-primary py-3 rounded-lg font-semibold"
+                                style="font-family: Lato, sans-serif; background-color: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+                                登录
+                            </button>
+                        </form>
+                    `}
                 </div>
-            `;
+            </div>
+        </div>
+    `;
             
             if (showRegisterForm) {
                 document.getElementById('registerForm').addEventListener('submit', async (e) => {
@@ -616,20 +625,19 @@ window.dataSdk = {
             }
         }
         
-        function renderMainApp(app, config, services, bookings, posts, customers) {
-            app.innerHTML = `
-                <div class="min-h-full">
-                    <!-- Header -->
-                    <header style="background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; border-bottom: 3px solid ${config.primary_action_color};">
-                        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                            <h1 style="font-size: ${config.font_size * 1.8}px; font-weight: 700; background: linear-gradient(135deg, ${config.primary_action_color} 0%, ${config.secondary_action_color} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                                ${config.app_title}
-                            </h1>
-                            <button id="menuBtn" class="px-4 py-2 rounded-lg" style="border: 2px solid ${config.primary_action_color}; background: ${config.primary_action_color}22; color: ${config.primary_action_color}; font-family: Lato, sans-serif;">
-                                ☰ 菜单
-                            </button>
-                        </div>
-                    </header>
+function renderMainApp(app, config, services, bookings, posts, customers) {
+    app.innerHTML = `
+        <div class="min-h-full">
+            <header style="background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; border-bottom: 3px solid ${config.primary_action_color};">
+                <div class="max-w-7xl mx-auto px-6 py-2 flex justify-between items-center">
+                    
+                    <img src="./assets/header_logo.png" alt="${config.app_title}" class="header-logo-img">
+                    
+                    <button id="menuBtn" class="px-4 py-2 rounded-lg" style="border: 2px solid ${config.primary_action_color}; background: ${config.primary_action_color}22; color: ${config.primary_action_color}; font-family: Lato, sans-serif;">
+                        ☰ 菜单
+                    </button>
+                </div>
+            </header>
                     
                     <!-- Menu Overlay -->
                     ${showMenu ? `
