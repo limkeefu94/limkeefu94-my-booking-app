@@ -970,7 +970,7 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                                 ${serviceStats.map((stat, index) => `
                                     <div>
                                         <div class="flex justify-between mb-2">
-                                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color};">
+                                            ${service.duration > 0 ? `<span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; font-weight: 400;"> | ${service.duration}分钟</span>` : ''}
                                                 ${index + 1}. ${stat.name}
                                             </span>
                                             <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color}; font-weight: 600;">
@@ -1110,186 +1110,99 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
             return `
                 <div>
                     <h2 class="mb-8" style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color};">
-                        系统设置
-                    </h2>
-                    
-                    <!-- Password Change -->
-                    <div class="mb-8" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
-                        <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
-                            修改业主密码
-                        </h3>
-                        
-                        <form id="changePasswordForm">
+                系统设置
+                     </h2>
+            
+                      <div class="mb-8" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
+                          <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
+                              👤 修改业主登录信息
+                         </h3>
+                
+                         <form id="changeCredentialsForm">
                             <div class="mb-4">
-                                <label for="currentPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                    当前密码
-                                </label>
-                                <input type="password" id="currentPassword" required
-                                    class="w-full px-4 py-3 rounded-lg border-2"
-                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                            </div>
-                            
-                            <div class="mb-4">
-                                <label for="newPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                    新密码
-                                </label>
-                                <input type="password" id="newPassword" required
-                                    class="w-full px-4 py-3 rounded-lg border-2"
-                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                            </div>
-                            
-                            <div class="mb-6">
-                                <label for="confirmPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                    确认新密码
-                                </label>
-                                <input type="password" id="confirmPassword" required
-                                    class="w-full px-4 py-3 rounded-lg border-2"
-                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                            </div>
-                            
-                            <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                更新密码
-                            </button>
-                        </form>
-                    </div>
+                              <label for="newUsername" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                   新用户名 (当前: ${ownerCredentials.username})
+                              </label>
+                              <input type="text" id="newUsername" value="${ownerCredentials.username}" required
+                                  class="w-full px-4 py-3 rounded-lg border-2"
+                                  style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                        </div>
+
+                        <div class="mb-4">
+                             <label for="newPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                 新密码 (不改请留空)
+                             </label>
+                             <input type="password" id="newPassword" placeholder="输入新密码"
+                                 class="w-full px-4 py-3 rounded-lg border-2"
+                                 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                        </div>
                     
-                    <!-- Points Exchange Rate Settings -->
-                    <div class="mb-8" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
-                        <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
-                            💰 积分兑换率设置
-                        </h3>
-                        
-                        <form id="pointsRateForm">
-                            <div class="mb-4" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px;">
-                                <label for="pointsToRmRate" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                    多少积分 = 1 RM
-                                </label>
-                                <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}" min="1"
-                                    class="w-full px-4 py-3 rounded-lg border-2"
-                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                                <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.7; margin-top: 8px;">
-                                    例如：设置为10表示10积分可抵扣1RM
-                                </p>
-                            </div>
-                            
-                            <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                保存兑换率设置
-                            </button>
-                        </form>
-                    </div>
+                        <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
+                            style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+                            保存修改
+                        </button>
+                   </form>
+               </div>
+            
+               <div class="mb-8" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
+                   <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
+                       💰 积分兑换率设置
+                   </h3>
+                
+                   <form id="pointsRateForm">
+                        <div class="mb-4" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px;">
+                            <label for="pointsToRmRate" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                多少积分 = 1 RM
+                            </label>
+                            <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}" min="1"
+                                class="w-full px-4 py-3 rounded-lg border-2"
+                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.7; margin-top: 8px;">
+                                 例如：设置为10表示10积分可抵扣1RM
+                            </p>
+                        </div>
                     
-                    <!-- Discount Settings -->
-                    <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
-                        <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
-                            🎁 会员折扣设置
-                        </h3>
-                        
-                        <form id="discountSettingsForm">
-                            <div class="mb-6" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px; border-left: 4px solid ${config.primary_action_color};">
-                                <h4 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; font-weight: 600; margin-bottom: 12px;">
-                                    🥉 铜牌会员
-                                </h4>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label for="bronzePoints" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color};">
-                                            所需积分
-                                        </label>
-                                        <input type="number" id="bronzePoints" value="${discountSettings.bronze_points}" min="0"
-                                            class="w-full px-3 py-2 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                    <div>
-                                        <label for="bronzeDiscount" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color};">
-                                            折扣 (%)
-                                        </label>
-                                        <input type="number" id="bronzeDiscount" value="${discountSettings.bronze_discount}" min="0" max="100"
-                                            class="w-full px-3 py-2 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-6" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px; border-left: 4px solid ${config.primary_action_color};">
-                                <h4 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; font-weight: 600; margin-bottom: 12px;">
-                                    🥈 银牌会员
-                                </h4>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label for="silverPoints" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color};">
-                                            所需积分
-                                        </label>
-                                        <input type="number" id="silverPoints" value="${discountSettings.silver_points}" min="0"
-                                            class="w-full px-3 py-2 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                    <div>
-                                        <label for="silverDiscount" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color};">
-                                            折扣 (%)
-                                        </label>
-                                        <input type="number" id="silverDiscount" value="${discountSettings.silver_discount}" min="0" max="100"
-                                            class="w-full px-3 py-2 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-6" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px; border-left: 4px solid ${config.primary_action_color};">
-                                <h4 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; font-weight: 600; margin-bottom: 12px;">
-                                    🥇 金牌会员
-                                </h4>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label for="goldPoints" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color};">
-                                            所需积分
-                                        </label>
-                                        <input type="number" id="goldPoints" value="${discountSettings.gold_points}" min="0"
-                                            class="w-full px-3 py-2 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                    <div>
-                                        <label for="goldDiscount" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color};">
-                                            折扣 (%)
-                                        </label>
-                                        <input type="number" id="goldDiscount" value="${discountSettings.gold_discount}" min="0" max="100"
-                                            class="w-full px-3 py-2 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-6" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px; border-left: 4px solid ${config.primary_action_color};">
-                                <h4 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; font-weight: 600; margin-bottom: 12px;">
-                                    💎 白金会员
-                                </h4>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label for="platinumPoints" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color};">
-                                            所需积分
-                                        </label>
-                                        <input type="number" id="platinumPoints" value="${discountSettings.platinum_points}" min="0"
-                                            class="w-full px-3 py-2 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                    <div>
-                                        <label for="platinumDiscount" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color};">
-                                            折扣 (%)
-                                        </label>
-                                        <input type="number" id="platinumDiscount" value="${discountSettings.platinum_discount}" min="0" max="100"
-                                            class="w-full px-3 py-2 rounded-lg border-2"
-                                            style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; border-color: ${config.text_color}33;">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                保存折扣设置
-                            </button>
-                        </form>
-                    </div>
+                        <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
+                            style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+                            保存兑换率设置
+                        </button>
+                    </form>
                 </div>
+            
+                <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
+                    <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
+                        🎁 会员折扣设置
+                    </h3>
+                
+                    <form id="discountSettingsForm">
+                        ${['bronze', 'silver', 'gold', 'platinum'].map(level => {
+                            const levelName = level === 'bronze' ? '🥉 铜牌会员' : level === 'silver' ? '🥈 银牌会员' : level === 'gold' ? '🥇 金牌会员' : '💎 白金会员';
+                            return `
+                                <div class="mb-6" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px; border-left: 4px solid ${config.primary_action_color};">
+                                    <h4 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; font-weight: 600; margin-bottom: 12px;">
+                                        ${levelName}
+                                    </h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>      
+                                        <label class="block mb-2" style="font-size: ${config.font_size * 0.85}px;">所需积分</label>
+                                        <input type="number" id="${level}Points" value="${discountSettings[level + '_points']}" min="0" class="w-full px-3 py-2 rounded-lg border-2">
+                                      </div>
+                                      <div>
+                                           <label class="block mb-2" style="font-size: ${config.font_size * 0.85}px;">折扣 (%)</label>
+                                           <input type="number" id="${level}Discount" value="${discountSettings[level + '_discount']}" min="0" max="100" class="w-full px-3 py-2 rounded-lg border-2">
+                                       </div>
+                                   </div>
+                               </div>
+                           `;
+                        }).join('')}
+                    
+                        <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
+                            style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+                            保存折扣设置
+                        </button>
+                    </form>
+                </div>
+            </div>
             `;
         }
         
@@ -1778,42 +1691,44 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                 });
             });
             
-            // Change password form
-            document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
+            // 新的：修改业主信息表单监听
+            document.getElementById('changeCredentialsForm')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                const currentPassword = document.getElementById('currentPassword').value;
+                const newUsername = document.getElementById('newUsername').value;
                 const newPassword = document.getElementById('newPassword').value;
-                const confirmPassword = document.getElementById('confirmPassword').value;
                 
-                if (currentPassword !== ownerCredentials.password) {
-                    showToast('当前密码错误');
-                    return;
+                // 准备要更新的数据
+                const updates = { username: newUsername };
+                
+                // 只有当用户输入了新密码才更新密码
+                if (newPassword && newPassword.length > 0) {
+                    if (newPassword.length < 4) {
+                        showToast('密码至少需要4个字符');
+                        return;
+                    }
+                    updates.password = newPassword;
                 }
                 
-                if (newPassword !== confirmPassword) {
-                    showToast('两次输入的密码不一致');
-                    return;
-                }
-                
-                if (newPassword.length < 4) {
-                    showToast('密码至少需要4个字符');
-                    return;
-                }
-                
-                // Check if credentials record exists
+                // 更新数据库
                 const credRecord = getDataByType('owner_credentials')[0];
                 if (credRecord) {
-                    await updateRecord(credRecord, { password: newPassword });
+                    await updateRecord(credRecord, updates);
                 } else {
                     await createRecord({
                         type: 'owner_credentials',
-                        username: ownerCredentials.username,
-                        password: newPassword
+                        username: newUsername,
+                        password: newPassword || ownerCredentials.password // 如果没改密码就用旧的
                     });
                 }
                 
-                document.getElementById('changePasswordForm').reset();
+                // 马上更新本地的变量，这样不用刷新页面就能生效
+                ownerCredentials.username = newUsername;
+                if (updates.password) ownerCredentials.password = updates.password;
+                
+                showToast('登录信息已更新！下次请用新账号登录');
+                document.getElementById('changeCredentialsForm').reset();
+                renderApp(); // 重新渲染以显示新用户名
             });
             
             // Points rate form
@@ -2017,7 +1932,7 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                             <label for="serviceDuration" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
                                 时长 (分钟)
                             </label>
-                            <input type="number" id="serviceDuration" required min="1"
+                            <input type="number" id="serviceDuration" min="0" placeholder="可选"
                                 class="w-full px-4 py-3 rounded-lg border-2"
                                 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
                         </div>
@@ -2054,7 +1969,7 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                     type: 'service',
                     name: document.getElementById('serviceName').value,
                     price: parseFloat(document.getElementById('servicePrice').value),
-                    duration: parseInt(document.getElementById('serviceDuration').value),
+                    duration: document.getElementById('serviceDuration').value ? parseInt(document.getElementById('serviceDuration').value) : 0,
                     description: document.getElementById('serviceDescription').value,
                     imageUrl: ''
                 });
