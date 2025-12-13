@@ -145,137 +145,7 @@ window.dataSdk = {
             const doc = new jsPDF();
             
             // Get date filter info
-            const dateFilter = window.statsDateFilter || 'all';
-            const customStartDate = window.statsStartDate || '';
-            const customEndDate = window.statsEndDate || '';
-            
-            // Filter bookings by date
-            let filteredBookings = bookings;
-            const now = new Date();
-            
-            if (dateFilter === 'today') {
-                const today = now.toISOString().split('T')[0];
-                filteredBookings = bookings.filter(b => b.appointmentDate === today);
-            } else if (dateFilter === 'this_week') {
-                const startOfWeek = new Date(now);
-                startOfWeek.setDate(now.getDate() - now.getDay());
-                const startDate = startOfWeek.toISOString().split('T')[0];
-                filteredBookings = bookings.filter(b => b.appointmentDate >= startDate);
-            } else if (dateFilter === 'this_month') {
-                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                const startDate = startOfMonth.toISOString().split('T')[0];
-                filteredBookings = bookings.filter(b => b.appointmentDate >= startDate);
-            } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
-                filteredBookings = bookings.filter(b => 
-                    b.appointmentDate >= customStartDate && b.appointmentDate <= customEndDate
-                );
-            }
-            
-            const totalBookings = filteredBookings.length;
-            const completedBookings = filteredBookings.filter(b => b.status === 'completed').length;
-            const pendingBookings = filteredBookings.filter(b => b.status === 'pending').length;
-            const cancelledBookings = filteredBookings.filter(b => b.status === 'cancelled').length;
-            const totalRevenue = filteredBookings.filter(b => b.status === 'completed')
-                .reduce((sum, b) => sum + b.totalAmount, 0);
-            
-            // Title
-            doc.setFontSize(20);
-            doc.text('Gem Brow Business Statistics', 105, 20, { align: 'center' });
-            
-            // Date range
-            doc.setFontSize(12);
-            let dateRangeText = 'Period: ';
-            if (dateFilter === 'all') {
-                dateRangeText += 'All Time';
-            } else if (dateFilter === 'today') {
-                dateRangeText += 'Today';
-            } else if (dateFilter === 'this_week') {
-                dateRangeText += 'This Week';
-            } else if (dateFilter === 'this_month') {
-                dateRangeText += 'This Month';
-            } else if (dateFilter === 'custom') {
-                dateRangeText += `${customStartDate} to ${customEndDate}`;
-            }
-            doc.text(dateRangeText, 105, 30, { align: 'center' });
-            
-            // Generated date
-            doc.setFontSize(10);
-            doc.text(`Generated: ${new Date().toLocaleString('zh-CN')}`, 105, 37, { align: 'center' });
-            
-            // Overview Stats
-            doc.setFontSize(14);
-            doc.text('Overview Statistics', 20, 50);
-            
-            doc.setFontSize(11);
-            let yPos = 60;
-            doc.text(`Total Bookings: ${totalBookings}`, 20, yPos);
-            yPos += 8;
-            doc.text(`Completed: ${completedBookings}`, 20, yPos);
-            yPos += 8;
-            doc.text(`Pending: ${pendingBookings}`, 20, yPos);
-            yPos += 8;
-            doc.text(`Cancelled: ${cancelledBookings}`, 20, yPos);
-            yPos += 8;
-            doc.text(`Total Revenue: RM${totalRevenue.toFixed(2)}`, 20, yPos);
-            yPos += 8;
-            doc.text(`Registered Customers: ${customers.length}`, 20, yPos);
-            
-            // Service Statistics
-            yPos += 15;
-            doc.setFontSize(14);
-            doc.text('Service Performance', 20, yPos);
-            
-            const serviceStats = services.map(service => {
-                const serviceBookings = filteredBookings.filter(b => b.serviceId === service.id && b.status === 'completed');
-                return {
-                    name: service.name,
-                    count: serviceBookings.length,
-                    revenue: serviceBookings.reduce((sum, b) => sum + b.totalAmount, 0)
-                };
-            }).sort((a, b) => b.count - a.count);
-            
-            yPos += 10;
-            doc.setFontSize(11);
-            serviceStats.forEach((stat, index) => {
-                if (yPos > 270) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-                doc.text(`${index + 1}. ${stat.name}: ${stat.count} bookings, RM${stat.revenue.toFixed(2)}`, 25, yPos);
-                yPos += 7;
-            });
-            
-            // Membership Distribution
-            yPos += 10;
-            if (yPos > 250) {
-                doc.addPage();
-                yPos = 20;
-            }
-            doc.setFontSize(14);
-            doc.text('Membership Distribution', 20, yPos);
-            
-            yPos += 10;
-            doc.setFontSize(11);
-            const membershipStats = {
-                bronze: customers.filter(c => c.membershipLevel === 'bronze').length,
-                silver: customers.filter(c => c.membershipLevel === 'silver').length,
-                gold: customers.filter(c => c.membershipLevel === 'gold').length,
-                platinum: customers.filter(c => c.membershipLevel === 'platinum').length
-            };
-            
-            doc.text(`Bronze Members: ${membershipStats.bronze}`, 25, yPos);
-            yPos += 7;
-            doc.text(`Silver Members: ${membershipStats.silver}`, 25, yPos);
-            yPos += 7;
-            doc.text(`Gold Members: ${membershipStats.gold}`, 25, yPos);
-            yPos += 7;
-            doc.text(`Platinum Members: ${membershipStats.platinum}`, 25, yPos);
-            
-            // Save PDF
-            const fileName = `statistics_${dateFilter === 'custom' ? `${customStartDate}_to_${customEndDate}` : dateFilter}_${Date.now()}.pdf`;
-            doc.save(fileName);
-            
-            showToast('PDF导出成功！');
+            window.print();
         }
         
         function getDataByType(type) {
@@ -2399,6 +2269,28 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
             document.getElementById('bookingForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
+                const targetDate = document.getElementById('appointmentDate').value;
+                const targetTime = document.getElementById('appointmentTime').value;
+                const name = document.getElementById('customerName').value;
+                const phone = document.getElementById('customerPhone').value;
+
+                // === 新增：防冲突检查逻辑 (核心修复) ===
+                // 1. 获取所有预约数据
+                const existingBookings = getDataByType('booking');
+                
+                // 2. 检查是否有冲突 (同一天、同一时间、且状态不是'cancelled'已取消)
+                const hasConflict = existingBookings.some(b => 
+                    b.appointmentDate === targetDate && 
+                    b.appointmentTime === targetTime && 
+                    b.status !== 'cancelled'
+                );
+
+                if (hasConflict) {
+                    showToast('❌ 哎呀！该时间段已被预约，请换个时间');
+                    return; // 直接停止，不让往下走了
+                }
+                // === 检查结束 ===
+
                 const pointsUsed = customerAccount ? (parseInt(document.getElementById('pointsToUse').value) || 0) : 0;
                 const pointsDiscount = (pointsUsed / pointsToRmRate);
                 const finalPrice = Math.max(0, parseFloat(servicePrice) - pointsDiscount);
@@ -2411,12 +2303,12 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                 
                 const success = await createRecord({
                     type: 'booking',
-                    customerName: document.getElementById('customerName').value,
-                    customerPhone: document.getElementById('customerPhone').value,
+                    customerName: name,
+                    customerPhone: phone,
                     serviceId: serviceId,
                     serviceName: serviceName,
-                    appointmentDate: document.getElementById('appointmentDate').value,
-                    appointmentTime: document.getElementById('appointmentTime').value,
+                    appointmentDate: targetDate,
+                    appointmentTime: targetTime,
                     status: 'pending',
                     totalAmount: parseFloat(finalPrice.toFixed(2)),
                     points_used: pointsUsed

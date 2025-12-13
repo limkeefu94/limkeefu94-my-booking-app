@@ -141,3 +141,27 @@ select:focus {
     width: auto;
     object-fit: contain;
 }
+/* ==================== 打印专用样式 (解决PDF乱码) ==================== */
+@media print {
+    /* 打印时隐藏所有按钮、输入框、菜单 */
+    button, input, select, header, .toast {
+        display: none !important;
+    }
+    
+    /* 隐藏背景色，节省墨水（可选） */
+    body {
+        background: white !important;
+        color: black !important;
+    }
+
+    /* 确保内容铺满 */
+    #app, .min-h-full {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* 如果有图表或卡片，避免被切断 */
+    div {
+        break-inside: avoid;
+    }
+}
