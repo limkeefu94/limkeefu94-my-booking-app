@@ -1002,7 +1002,7 @@ window.dataSdk = {
                         <div style="background: rgba(255, 255, 255, 0.95); padding: 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                             <div style="font-size: 40px; margin-bottom: 8px;">💰</div>
                             <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.7; margin-bottom: 4px;">
-                                总��入
+                                总收入
                             </p>
                             <p style="font-size: ${config.font_size * 1.8}px; font-weight: 700; color: ${config.primary_action_color};">
                                 RM${totalRevenue.toFixed(2)}
@@ -1195,7 +1195,7 @@ window.dataSdk = {
                                             ⭐ 积分: ${customer.points}
                                         </p>
                                         <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                            🎁 ��扣: ${getMembershipDiscountText(customer.membershipLevel)}
+                                            🎁 折扣: ${getMembershipDiscountText(customer.membershipLevel)}
                                         </p>
                                         <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
                                             📅 预约次数: ${customerBookings.length}
@@ -1287,7 +1287,7 @@ window.dataSdk = {
                                     class="w-full px-4 py-3 rounded-lg border-2"
                                     style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
                                 <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.7; margin-top: 8px;">
-                                    例如：设置为10表��10积分可抵扣1RM
+                                    例如：设置为10表示10积分可抵扣1RM
                                 </p>
                             </div>
                             
@@ -2028,7 +2028,7 @@ window.dataSdk = {
                         
                         <div class="mb-6">
                             <label for="newCustomerPoints" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                ��始积分
+                                初始积分
                             </label>
                             <input type="number" id="newCustomerPoints" value="0" min="0"
                                 class="w-full px-4 py-3 rounded-lg border-2"
