@@ -236,11 +236,14 @@ window.dataSdk = {
         }
         
         // 根据积分计算会员等级
-        function calculateMembershipLevel(points) {
+        function calculateMembershipLevel(points, lifetime_points) {
+             // 优先使用历史总积分来计算等级，如果没有(老用户)，才用当前积分
+            const score = (lifetime_points !== undefined) ? lifetime_points : points;
+    
             const settings = getDiscountSettings();
-            if (points >= settings.platinum_points) return 'platinum';
-            if (points >= settings.gold_points) return 'gold';
-            if (points >= settings.silver_points) return 'silver';
+            if (score >= settings.platinum_points) return 'platinum';
+            if (score >= settings.gold_points) return 'gold';
+            if (score >= settings.silver_points) return 'silver';
             return 'bronze';
         }
         
@@ -305,23 +308,24 @@ window.dataSdk = {
             if (existingAccount) {
                 showToast('用户名已存在');
                 return false;
-            }
-            
-            const success = await createRecord({
+           }
+    
+           const success = await createRecord({
                 type: 'customer_account',
                 username: username,
                 password: password,
                 email: email,
                 points: 0,
+                lifetime_points: 0, // 【新增】历史总积分，初始为0
                 membershipLevel: 'bronze'
-            });
-            
-            if (success) {
-                showToast('注册成功！请登录');
-                showRegisterForm = false;
-                return true;
-            }
-            return false;
+           });
+    
+    if (success) {
+        showToast('注册成功！请登录');
+        showRegisterForm = false;
+        return true;
+    }
+    return false;
         }
         
         function handleLogout() {
@@ -1082,11 +1086,11 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                                             ✅ 完成次数: ${completedBookings.length}
                                         </p>
                                         <div class="flex gap-2">
-                                            <button class="editCustomerBtn flex-1 py-2 rounded-lg" data-customer-id="${customer.__backendId}"
+                                            <button class="editCustomerBtn flex-1 py-2 rounded-lg" data-customer-id="${customer.id}"
                                                 style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 0.9}px;">
                                                 ✏️ 编辑
                                             </button>
-                                            <button class="deleteCustomerBtn py-2 px-4 rounded-lg" data-customer-id="${customer.__backendId}"
+                                            <button class="deleteCustomerBtn py-2 px-4 rounded-lg" data-customer-id="${customer.id}"
                                                 style="font-family: Lato, sans-serif; background: #ef4444; color: #ffffff; font-size: ${config.font_size * 0.9}px;">
                                                 🗑️
                                             </button>
@@ -1645,7 +1649,7 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
             // Edit customer profile (owner)
             document.querySelectorAll('.editCustomerBtn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const customer = customers.find(c => c.__backendId === btn.dataset.customerId);
+                    const customer = customers.find(c => c.id === btn.dataset.customerId);
                     if (customer) {
                         showEditCustomerModal(config, customer);
                     }
@@ -1655,7 +1659,7 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
             // Delete customer
             document.querySelectorAll('.deleteCustomerBtn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const customer = customers.find(c => c.__backendId === btn.dataset.customerId);
+                    const customer = customers.find(c => c.id === btn.dataset.customerId);
                     if (customer) {
                         showConfirmModal(config, `确定要删除客户 "${customer.username}" 吗？此操作无法撤销。`, async () => {
                             await deleteRecord(customer);
@@ -1722,23 +1726,33 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                 });
             });
             
+            // 找到 completeBookingBtn 的监听代码块
             document.querySelectorAll('.completeBookingBtn').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const booking = bookings.find(b => b.id === btn.dataset.id);
                     if (booking) {
                         await updateRecord(booking, { status: 'completed' });
                         
-                        // Award points to customer if they have an account
+                        // 给客户加积分
                         const customerAccount = getDataByType('customer_account').find(
                             acc => acc.username === booking.customerName
                         );
                         if (customerAccount) {
                             const pointsEarned = Math.floor(booking.totalAmount);
-                            const newPoints = customerAccount.points + pointsEarned;
-                            const newLevel = calculateMembershipLevel(newPoints);
+                            
+                            // 【核心修改】
+                            // 1. 可用积分增加
+                            const newPoints = (customerAccount.points || 0) + pointsEarned;
+                            // 2. 历史总积分增加 (如果没有历史分，就以当前分作为基础)
+                            const currentLifetime = customerAccount.lifetime_points !== undefined ? customerAccount.lifetime_points : (customerAccount.points || 0);
+                            const newLifetimePoints = currentLifetime + pointsEarned;
+                            
+                            // 3. 根据历史总积分计算新等级
+                            const newLevel = calculateMembershipLevel(newPoints, newLifetimePoints);
                             
                             await updateRecord(customerAccount, {
                                 points: newPoints,
+                                lifetime_points: newLifetimePoints, // 保存历史总积分
                                 membershipLevel: newLevel
                             });
                         }
