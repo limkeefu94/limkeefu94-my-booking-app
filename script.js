@@ -116,17 +116,52 @@ window.dataSdk = {
         
         let ownerCredentials = { username: 'admin', password: '1231' };
         
-        // Data SDK Handler
-        const dataHandler = {
-            onDataChanged(data) {
-                allData = data;
-                const credData = data.find(item => item.type === 'owner_credentials');
-                if (credData) {
-                    ownerCredentials = { username: credData.username, password: credData.password };
+ // ==================== 数据 SDK 处理器 (已修改：支持自动登录) ====================
+    const dataHandler = {
+       onDataChanged(data) {
+           allData = data;
+        
+           // 1. 加载最新的业主密码
+           const credData = data.find(item => item.type === 'owner_credentials');
+           if (credData) {
+              ownerCredentials = { username: credData.username, password: credData.password };
+           }
+        
+           // 2. 【新增】检查自动登录
+           // 只有在当前是 'login' 模式（刚打开网页）时才检查
+           if (currentMode === 'login') {
+              try {
+                  const sessionStr = localStorage.getItem('gembrow_session');
+                  if (sessionStr) {
+                     const session = JSON.parse(sessionStr);
+                     // 检查是否过期 (当前时间 < 过期时间)
+                     if (Date.now() < session.expiry) {
+                        console.log('🔄 发现有效会话，自动登录中...');
+                        if (session.mode === 'owner') {
+                            currentMode = 'owner';
+                            currentView = 'manage'; // 或者是上次停留的页面
+                        } else if (session.mode === 'customer') {
+                            // 确保这个用户还存在于数据库里
+                            const userExists = data.find(u => u.username === session.username && u.type === 'customer_account');
+                            if (userExists) {
+                                currentMode = 'customer';
+                                currentView = 'services';
+                                loggedInCustomerName = session.username;
+                            }
+                        }
+                    } else {
+                        // 如果过期了，清理掉
+                        localStorage.removeItem('gembrow_session');
+                    }
                 }
-                renderApp();
+            } catch (e) {
+                console.error('自动登录失败', e);
             }
-        };
+        }
+
+        renderApp();
+    }
+};
         
         // 工具函数
         function showToast(message) {
@@ -274,31 +309,51 @@ window.dataSdk = {
         
         // 认证函数
         function handleLogin(username, password) {
-            if (username === ownerCredentials.username && password === ownerCredentials.password) {
-                currentMode = 'owner';
-                currentView = 'manage';
-                loggedInCustomerName = '';
-                showToast('登入成功！');
-                renderApp();
-                return true;
-            }
-            
-            const customerAccount = getDataByType('customer_account').find(
-                acc => acc.username === username && acc.password === password
-            );
-            
-            if (customerAccount) {
-                currentMode = 'customer';
-                currentView = 'services';
-                loggedInCustomerName = username;
-                showToast(`欢迎回来，${username}！`);
-                renderApp();
-                return true;
-            }
-            
-            showToast('用户名或密码错误');
-            return false;
-        }
+           // 1. 检查业主账户
+          if (username === ownerCredentials.username && password === ownerCredentials.password) {
+             currentMode = 'owner';
+             currentView = 'manage';
+             loggedInCustomerName = '';
+        
+             // 【新增】保存登录状态 (4小时 = 14400000 毫秒)
+             const session = {
+                mode: 'owner',
+                username: '',
+                expiry: Date.now() + 14400000 
+             };
+             localStorage.setItem('gembrow_session', JSON.stringify(session));
+        
+             showToast('登录成功！');
+             renderApp();
+             return true;
+          }
+    
+         // 2. 检查客户账户
+         const customerAccount = getDataByType('customer_account').find(
+             acc => acc.username === username && acc.password === password
+         );
+    
+         if (customerAccount) {
+             currentMode = 'customer';
+             currentView = 'services';
+             loggedInCustomerName = username;
+        
+             // 【新增】保存登录状态 (4小时)
+             const session = {
+             mode: 'customer',
+             username: username,
+             expiry: Date.now() + 14400000
+             };
+             localStorage.setItem('gembrow_session', JSON.stringify(session));
+        
+             showToast(`欢迎回来，${username}！`);
+             renderApp();
+             return true;
+       }
+    
+    showToast('用户名或密码错误');
+    return false;
+}
         
         async function handleRegister(username, password, email) {
             const existingAccount = getDataByType('customer_account').find(
@@ -329,6 +384,9 @@ window.dataSdk = {
         }
         
         function handleLogout() {
+            // 【新增】清除登录记录
+            localStorage.removeItem('gembrow_session');
+    
             currentMode = 'login';
             showMenu = false;
             loggedInCustomerName = '';
@@ -1175,6 +1233,21 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                     </h3>
                 
                     <form id="discountSettingsForm">
+                    
+                    <div class="mb-6 flex items-center justify-between" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px; border: 2px solid ${config.primary_action_color};">
+                        <div>
+                            <h4 style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; font-weight: 700;">
+                                启用积分与会员奖励
+                            </h4>
+                            <p style="font-size: ${config.font_size * 0.85}px; opacity: 0.7;">
+                                关闭后，客户将看不到积分和会员等级
+                            </p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="enableRewards" class="sr-only peer" ${discountSettings.enable_rewards !== false ? 'checked' : ''}>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[${config.primary_action_color}]"></div>
+                        </label>
+                    </div>
                         ${['bronze', 'silver', 'gold', 'platinum'].map(level => {
                             const levelName = level === 'bronze' ? '🥉 铜牌会员' : level === 'silver' ? '🥈 银牌会员' : level === 'gold' ? '🥇 金牌会员' : '💎 白金会员';
                             return `
@@ -1390,73 +1463,72 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
         function renderProfile(config, bookings) {
             const customerAccount = getDataByType('customer_account').find(acc => acc.username === loggedInCustomerName);
             if (!customerAccount) return '';
-            
+    
             const myBookings = bookings.filter(b => b.customerName === loggedInCustomerName);
             const completedBookings = myBookings.filter(b => b.status === 'completed');
-            const discount = getMembershipDiscount(customerAccount.membershipLevel);
             const settings = getDiscountSettings();
+    
+           // 【关键】检查开关是否开启 (默认为 true)
+           const showRewards = settings.enable_rewards !== false;
+
+           return `
+               <div>
+                  <h2 class="mb-8" style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color};">
+                      我的账户
+                  </h2>
             
-            return `
-                <div>
-                    <h2 class="mb-8" style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color};">
-                        我的账户
-                    </h2>
+                  <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                       <div class="mb-6">
+                          <div class="flex justify-between items-center mb-4">
+                              <h3 style="font-size: ${config.font_size * 1.5}px; font-weight: 700; color: ${config.text_color};">
+                                  ${customerAccount.username}
+                             </h3>
+                             ${showRewards ? getMembershipBadge(customerAccount.membershipLevel, config) : ''}
+                          </div>
                     
-                    <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                        <div class="mb-6">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 style="font-size: ${config.font_size * 1.5}px; font-weight: 700; color: ${config.text_color};">
-                                    ${customerAccount.username}
-                                </h3>
-                                ${getMembershipBadge(customerAccount.membershipLevel, config)}
-                            </div>
-                            
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                📧 ${customerAccount.email}
-                            </p>
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                ⭐ 积分: ${customerAccount.points}
-                            </p>
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                🎁 当前折扣: <span style="color: ${config.primary_action_color}; font-weight: 700;">${getMembershipDiscountText(customerAccount.membershipLevel)}</span>
-                            </p>
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                📅 总预约: ${myBookings.length}次
-                            </p>
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 16px;">
-                                ✅ 已完成: ${completedBookings.length}次
-                            </p>
-                            
-                            <button id="editProfileBtn" class="w-full btn-primary py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                ✏️ 编辑个人资料
-                            </button>
-                        </div>
-                        
-                        <div style="border-top: 2px solid ${config.primary_action_color}22; padding-top: 24px; margin-top: 24px;">
-                            <h4 style="font-size: ${config.font_size * 1.2}px; font-weight: 700; color: ${config.text_color}; margin-bottom: 12px;">
-                                会员等级说明
-                            </h4>
-                            <div class="space-y-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8;">
-                                <p>🥉 铜牌会员: ${settings.bronze_points}+积分 (${settings.bronze_discount}%折扣)</p>
-                                <p>🥈 银牌会员: ${settings.silver_points}+积分 (${settings.silver_discount}%折扣)</p>
-                                <p>🥇 金牌会员: ${settings.gold_points}+积分 (${settings.gold_discount}%折扣)</p>
-                                <p>💎 白金会员: ${settings.platinum_points}+积分 (${settings.platinum_discount}%折扣)</p>
-                            </div>
-                            
-                            <h4 style="font-size: ${config.font_size * 1.2}px; font-weight: 700; color: ${config.text_color}; margin-top: 16px; margin-bottom: 12px;">
-                                积分使用说明
-                            </h4>
-                            <div class="space-y-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8;">
-                                <p>💰 积分兑换: ${settings.points_to_rm_rate || 10}积分 = 1 RM</p>
-                                <p>✨ 您可以在预约时使用积分抵扣费用</p>
-                                <p>🎁 每次完成服务可获得相应积分奖励</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
+                          <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
+                          📧 ${customerAccount.email}
+                          </p>
+                    
+                          ${showRewards ? `
+                          <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
+                              ⭐ 积分: ${customerAccount.points}
+                          </p>
+                          <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
+                              🎁 当前折扣: <span style="color: ${config.primary_action_color}; font-weight: 700;">${getMembershipDiscountText(customerAccount.membershipLevel)}</span>
+                         </p>
+                         ` : ''}
+                    
+                         <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
+                             📅 总预约: ${myBookings.length}次
+                         </p>
+                         <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 16px;">
+                             ✅ 已完成: ${completedBookings.length}次
+                         </p>
+                    
+                         <button id="editProfileBtn" class="w-full btn-primary py-3 rounded-lg"
+                             style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+                             ✏️ 编辑个人资料
+                         </button>
+                     </div>
+                
+                     ${showRewards ? `
+                     <div style="border-top: 2px solid ${config.primary_action_color}22; padding-top: 24px; margin-top: 24px;">
+                         <h4 style="font-size: ${config.font_size * 1.2}px; font-weight: 700; color: ${config.text_color}; margin-bottom: 12px;">
+                             会员等级说明
+                         </h4>
+                         <div class="space-y-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8;">
+                             <p>🥉 铜牌会员: ${settings.bronze_points}+积分 (${settings.bronze_discount}%折扣)</p>
+                             <p>🥈 银牌会员: ${settings.silver_points}+积分 (${settings.silver_discount}%折扣)</p>
+                             <p>🥇 金牌会员: ${settings.gold_points}+积分 (${settings.gold_discount}%折扣)</p>
+                             <p>💎 白金会员: ${settings.platinum_points}+积分 (${settings.platinum_discount}%折扣)</p>
+                         </div>
+                     </div>
+                     ` : ''}
+                 </div>
+             </div>
+           `;
+}
         
         function attachEventListeners(config, services, bookings, posts, customers) {
             // Menu buttons
@@ -1767,6 +1839,10 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                 
                 const newSettings = {
                     type: 'discount_settings',
+                    // 【新增】保存开关状态
+                    enable_rewards: document.getElementById('enableRewards').checked,
+                    
+                    // 下面是原有的
                     bronze_points: parseInt(document.getElementById('bronzePoints').value),
                     bronze_discount: parseInt(document.getElementById('bronzeDiscount').value),
                     silver_points: parseInt(document.getElementById('silverPoints').value),
@@ -1774,7 +1850,10 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                     gold_points: parseInt(document.getElementById('goldPoints').value),
                     gold_discount: parseInt(document.getElementById('goldDiscount').value),
                     platinum_points: parseInt(document.getElementById('platinumPoints').value),
-                    platinum_discount: parseInt(document.getElementById('platinumDiscount').value)
+                    platinum_discount: parseInt(document.getElementById('platinumDiscount').value),
+                    
+                    // 还要保留兑换率，不然会丢失
+                    points_to_rm_rate: getDiscountSettings().points_to_rm_rate || 10
                 };
                 
                 const existingSettings = getDataByType('discount_settings')[0];
@@ -1784,14 +1863,9 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                     await createRecord(newSettings);
                 }
                 
-                // Update all customers' membership levels based on new point thresholds
-                const customers = getDataByType('customer_account');
-                for (const customer of customers) {
-                    const newLevel = calculateMembershipLevel(customer.points);
-                    if (newLevel !== customer.membershipLevel) {
-                        await updateRecord(customer, { membershipLevel: newLevel });
-                    }
-                }
+                // 重新计算所有人的等级(如果需要的话)并刷新页面
+                renderApp();
+                showToast('设置已保存！');
             });
         }
         
@@ -2066,204 +2140,198 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
             const availablePoints = customerAccount ? customerAccount.points : 0;
             const settings = getDiscountSettings();
             const pointsToRmRate = settings.points_to_rm_rate || 10;
+    
+            // 【关键修复】定义积分开关变量 (少了这行会导致按钮没反应)
+           const showRewards = settings.enable_rewards !== false;
+    
+           const modal = document.createElement('div');
+           modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+           modal.innerHTML = `
+              <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                  <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
+                     预约 ${serviceName}
+                 </h3>
             
-            const modal = document.createElement('div');
-            modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
-            modal.innerHTML = `
-                <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                    <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                        预约 ${serviceName}
-                    </h3>
+                 <form id="bookingForm">
+                    <div class="mb-4">
+                       <label for="customerName" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                           姓名
+                       </label>
+                       <input type="text" id="customerName" required value="${loggedInCustomerName}"
+                        class="w-full px-4 py-3 rounded-lg border-2"
+                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                   </div>
+                
+                   <div class="mb-4">
+                       <label for="customerPhone" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                          电话
+                       </label>
+                       <input type="tel" id="customerPhone" required
+                        class="w-full px-4 py-3 rounded-lg border-2"
+                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                   </div>
+                
+                   <div class="mb-4">
+                       <label for="appointmentDate" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                          预约日期
+                      </label>
+                      <input type="date" id="appointmentDate" required
+                        class="w-full px-4 py-3 rounded-lg border-2"
+                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                   </div>
+                
+                   <div class="mb-4">
+                       <label for="appointmentTime" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                           预约时间
+                       </label>
+                       <input type="time" id="appointmentTime" required
+                        class="w-full px-4 py-3 rounded-lg border-2"
+                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                   </div>
+                
+                   ${customerAccount && showRewards ? `
+                        <div class="mb-4" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px;">
+                            <div class="flex justify-between items-center mb-2">
+                                <label for="pointsToUse" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                    使用积分 (可用: ${availablePoints}分)
+                               </label>
+                               <button type="button" id="useMaxPointsBtn" 
+                                   style="font-family: Lato, sans-serif; background: ${config.secondary_action_color}; color: #ffffff; padding: 6px 16px; border-radius: 8px; font-size: ${config.font_size * 0.85}px; font-weight: 600;">
+                                   使用最大值
+                               </button>
+                          </div>
+                          <input type="number" id="pointsToUse" value="0" min="0" max="${availablePoints}"
+                               class="w-full px-4 py-3 rounded-lg border-2"
+                               style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                          <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.7; margin-top: 8px;">
+                               兑换率: ${pointsToRmRate}积分 = 1 RM
+                          </p>
+                     </div>
                     
-                    <form id="bookingForm">
-                        <div class="mb-4">
-                            <label for="customerName" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                姓名
-                            </label>
-                            <input type="text" id="customerName" required value="${loggedInCustomerName}"
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                     <div class="mb-6" style="padding: 16px; background: ${config.secondary_action_color}11; border-radius: 12px;">
+                        <div class="flex justify-between mb-2">
+                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color};">原价:</span>
+                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color};">RM${servicePrice}</span>
                         </div>
-                        
-                        <div class="mb-4">
-                            <label for="customerPhone" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                电话
-                            </label>
-                            <input type="tel" id="customerPhone" required
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                        <div class="flex justify-between mb-2">
+                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color};">积分抵扣:</span>
+                            <span id="pointsDiscount" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.primary_action_color};">-RM0.00</span>
                         </div>
-                        
-                        <div class="mb-4">
-                            <label for="appointmentDate" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                预约日期
-                            </label>
-                            <input type="date" id="appointmentDate" required
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                        <div class="flex justify-between" style="padding-top: 8px; border-top: 2px solid ${config.primary_action_color}44;">
+                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; font-weight: 700;">最终价格:</span>
+                            <span id="finalPrice" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.primary_action_color}; font-weight: 700;">RM${servicePrice}</span>
                         </div>
-                        
-                        <div class="mb-4">
-                            <label for="appointmentTime" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                预约时间
-                            </label>
-                            <input type="time" id="appointmentTime" required
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-                        
-                        ${customerAccount ? `
-                            <div class="mb-4" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px;">
-                                <div class="flex justify-between items-center mb-2">
-                                    <label for="pointsToUse" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                        使用积分 (可用: ${availablePoints}分)
-                                    </label>
-                                    <button type="button" id="useMaxPointsBtn" 
-                                        style="font-family: Lato, sans-serif; background: ${config.secondary_action_color}; color: #ffffff; padding: 6px 16px; border-radius: 8px; font-size: ${config.font_size * 0.85}px; font-weight: 600;">
-                                        使用最大值
-                                    </button>
-                                </div>
-                                <input type="number" id="pointsToUse" value="0" min="0" max="${availablePoints}"
-                                    class="w-full px-4 py-3 rounded-lg border-2"
-                                    style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                                <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.7; margin-top: 8px;">
-                                    兑换率: ${pointsToRmRate}积分 = 1 RM
-                                </p>
-                            </div>
-                            
-                            <div class="mb-6" style="padding: 16px; background: ${config.secondary_action_color}11; border-radius: 12px;">
-                                <div class="flex justify-between mb-2">
-                                    <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color};">原价:</span>
-                                    <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color};">RM${servicePrice}</span>
-                                </div>
-                                <div class="flex justify-between mb-2">
-                                    <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color};">积分抵扣:</span>
-                                    <span id="pointsDiscount" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.primary_action_color};">-RM0.00</span>
-                                </div>
-                                <div class="flex justify-between" style="padding-top: 8px; border-top: 2px solid ${config.primary_action_color}44;">
-                                    <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; font-weight: 700;">最终价格:</span>
-                                    <span id="finalPrice" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.primary_action_color}; font-weight: 700;">RM${servicePrice}</span>
-                                </div>
-                            </div>
-                        ` : `<div class="mb-6"></div>`}
-                        
-                        <div class="flex gap-3">
-                            <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                确认预约
-                            </button>
-                            <button type="button" id="cancelBookingBtn" class="flex-1 py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">
-                                取消
-                            </button>
-                        </div>
-                    </form>
+                    </div>
+                ` : `<div class="mb-6"></div>`}
+                
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+                        确认预约
+                    </button>
+                    <button type="button" id="cancelBookingBtn" class="flex-1 py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">
+                        取消
+                    </button>
                 </div>
-            `;
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 更新价格显示 (仅当积分输入框存在时)
+    const pointsInput = document.getElementById('pointsToUse');
+    if (pointsInput) {
+        pointsInput.addEventListener('input', () => {
+            const pointsUsed = parseInt(pointsInput.value) || 0;
+            const pointsDiscount = (pointsUsed / pointsToRmRate).toFixed(2);
+            const finalPrice = Math.max(0, parseFloat(servicePrice) - parseFloat(pointsDiscount)).toFixed(2);
             
-            document.body.appendChild(modal);
-            
-            // Update price calculation when points input changes
-            const pointsInput = document.getElementById('pointsToUse');
-            if (pointsInput) {
-                pointsInput.addEventListener('input', () => {
-                    const pointsUsed = parseInt(pointsInput.value) || 0;
-                    const pointsDiscount = (pointsUsed / pointsToRmRate).toFixed(2);
-                    const finalPrice = Math.max(0, parseFloat(servicePrice) - parseFloat(pointsDiscount)).toFixed(2);
-                    
-                    document.getElementById('pointsDiscount').textContent = `-RM${pointsDiscount}`;
-                    document.getElementById('finalPrice').textContent = `RM${finalPrice}`;
-                });
-            }
-            
-            // Use maximum points button
-            const useMaxPointsBtn = document.getElementById('useMaxPointsBtn');
-            if (useMaxPointsBtn && pointsInput) {
-                useMaxPointsBtn.addEventListener('click', () => {
-                    // Calculate max points that can be used (cannot exceed service price)
-                    const maxPointsByPrice = Math.floor(parseFloat(servicePrice) * pointsToRmRate);
-                    const maxPoints = Math.min(availablePoints, maxPointsByPrice);
-                    
-                    pointsInput.value = maxPoints;
-                    
-                    // Trigger price update
-                    const pointsDiscount = (maxPoints / pointsToRmRate).toFixed(2);
-                    const finalPrice = Math.max(0, parseFloat(servicePrice) - parseFloat(pointsDiscount)).toFixed(2);
-                    
-                    document.getElementById('pointsDiscount').textContent = `-RM${pointsDiscount}`;
-                    document.getElementById('finalPrice').textContent = `RM${finalPrice}`;
-                });
-            }
-            
-            document.getElementById('bookingForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
+            document.getElementById('pointsDiscount').textContent = `-RM${pointsDiscount}`;
+            document.getElementById('finalPrice').textContent = `RM${finalPrice}`;
+        });
+        
+        // 最大值按钮
+        const useMaxPointsBtn = document.getElementById('useMaxPointsBtn');
+        if (useMaxPointsBtn) {
+            useMaxPointsBtn.addEventListener('click', () => {
+                const maxPointsByPrice = Math.floor(parseFloat(servicePrice) * pointsToRmRate);
+                const maxPoints = Math.min(availablePoints, maxPointsByPrice);
                 
-                const targetDate = document.getElementById('appointmentDate').value;
-                const targetTime = document.getElementById('appointmentTime').value;
-                const name = document.getElementById('customerName').value;
-                const phone = document.getElementById('customerPhone').value;
-
-                // === 新增：防冲突检查逻辑 (核心修复) ===
-                // 1. 获取所有预约数据
-                const existingBookings = getDataByType('booking');
+                pointsInput.value = maxPoints;
                 
-                // 2. 检查是否有冲突 (同一天、同一时间、且状态不是'cancelled'已取消)
-                const hasConflict = existingBookings.some(b => 
-                    b.appointmentDate === targetDate && 
-                    b.appointmentTime === targetTime && 
-                    b.status !== 'cancelled'
-                );
-
-                if (hasConflict) {
-                    showToast('❌ 哎呀！该时间段已被预约，请换个时间');
-                    return; // 直接停止，不让往下走了
-                }
-                // === 检查结束 ===
-
-                const pointsUsed = customerAccount ? (parseInt(document.getElementById('pointsToUse').value) || 0) : 0;
-                const pointsDiscount = (pointsUsed / pointsToRmRate);
-                const finalPrice = Math.max(0, parseFloat(servicePrice) - pointsDiscount);
-                
-                // Validate points
-                if (pointsUsed > availablePoints) {
-                    showToast('积分不足');
-                    return;
-                }
-                
-                const success = await createRecord({
-                    type: 'booking',
-                    customerName: name,
-                    customerPhone: phone,
-                    serviceId: serviceId,
-                    serviceName: serviceName,
-                    appointmentDate: targetDate,
-                    appointmentTime: targetTime,
-                    status: 'pending',
-                    totalAmount: parseFloat(finalPrice.toFixed(2)),
-                    points_used: pointsUsed
-                });
-                
-                if (success) {
-                    // Deduct points from customer account
-                    if (customerAccount && pointsUsed > 0) {
-                        await updateRecord(customerAccount, {
-                            points: customerAccount.points - pointsUsed
-                        });
-                    }
-                    modal.remove();
-                }
-            });
-            
-            document.getElementById('cancelBookingBtn').addEventListener('click', () => {
-                modal.remove();
-            });
-            
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.remove();
-                }
+                // 触发更新
+                pointsInput.dispatchEvent(new Event('input'));
             });
         }
+    }
+    
+    // 提交预约 (含防冲突逻辑)
+    document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const targetDate = document.getElementById('appointmentDate').value;
+        const targetTime = document.getElementById('appointmentTime').value;
+        const name = document.getElementById('customerName').value;
+        const phone = document.getElementById('customerPhone').value;
+
+        // === 防冲突检查 ===
+        const existingBookings = getDataByType('booking');
+        const hasConflict = existingBookings.some(b => 
+            b.appointmentDate === targetDate && 
+            b.appointmentTime === targetTime && 
+            b.status !== 'cancelled'
+        );
+
+        if (hasConflict) {
+            showToast('❌ 该时间段已有预约，请选择其他时间');
+            return;
+        }
+        
+        // 计算积分和价格
+        const pointsUsed = (customerAccount && showRewards) ? (parseInt(document.getElementById('pointsToUse')?.value) || 0) : 0;
+        const pointsDiscount = (pointsUsed / pointsToRmRate);
+        const finalPrice = Math.max(0, parseFloat(servicePrice) - pointsDiscount);
+        
+        if (customerAccount && pointsUsed > availablePoints) {
+            showToast('积分不足');
+            return;
+        }
+        
+        const success = await createRecord({
+            type: 'booking',
+            customerName: name,
+            customerPhone: phone,
+            serviceId: serviceId,
+            serviceName: serviceName,
+            appointmentDate: targetDate,
+            appointmentTime: targetTime,
+            status: 'pending',
+            totalAmount: parseFloat(finalPrice.toFixed(2)),
+            points_used: pointsUsed
+        });
+        
+        if (success) {
+            if (customerAccount && pointsUsed > 0) {
+                await updateRecord(customerAccount, {
+                    points: customerAccount.points - pointsUsed
+                });
+            }
+            modal.remove();
+        }
+    });
+    
+    document.getElementById('cancelBookingBtn').addEventListener('click', () => {
+        modal.remove();
+    });
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
         
         function showRatingModal(config, serviceId) {
             const modal = document.createElement('div');
