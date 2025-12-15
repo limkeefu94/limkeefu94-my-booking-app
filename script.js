@@ -681,9 +681,14 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                                             RM${service.price} | ${service.duration}分钟
                                         </p>
                                     </div>
-                                    <button class="deleteServiceBtn" data-id="${service.id}" style="background: #ef4444; color: #ffffff; padding: 8px 20px; border-radius: 8px; font-family: Lato, sans-serif;">
-                                        删除
-                                    </button>
+                                     <div class="flex flex-col gap-2">
+                                         <button class="editServiceBtn" data-id="${service.id}" style="background: ${config.primary_action_color}; color: #ffffff; padding: 6px 12px; border-radius: 8px; font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px;">
+                                             ✏️ 编辑
+                                         </button>
+                                         <button class="deleteServiceBtn" data-id="${service.id}" style="background: #ef4444; color: #ffffff; padding: 6px 12px; border-radius: 8px; font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px;">
+                                             🗑️ 删除
+                                        </button>
+                                     </div>
                                 </div>
                             `;
                         }).join('')}
@@ -1555,6 +1560,15 @@ function attachEventListeners(config, services, bookings, posts, customers) {
     document.getElementById('addServiceBtn')?.addEventListener('click', () => {
         showServiceModal(config);
     });
+    
+    document.querySelectorAll('.editServiceBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const service = services.find(s => s.id === btn.dataset.id);
+            if (service) {
+                showEditServiceModal(config, service);
+            }
+        });
+    });
 
     document.querySelectorAll('.deleteServiceBtn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1857,7 +1871,7 @@ function showServiceModal(config) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     modal.innerHTML = `
-        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
             <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
                 添加新服务
             </h3>
@@ -1891,15 +1905,23 @@ function showServiceModal(config) {
                 </div>
 
                 <div class="mb-4">
-                    <label for="serviceImage" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                        图片链接 (可选)
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                        服务图片
                     </label>
-                    <input type="text" id="serviceImage" placeholder="粘贴图片网址，留空则显示默认Logo"
-                        class="w-full px-4 py-3 rounded-lg border-2"
-                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                    <p style="font-size: ${config.font_size * 0.8}px; opacity: 0.6; margin-top: 4px;">
-                        💡 提示: 可以填网上的图片链接，或者填 "./assets/图片名.png"
-                    </p>
+                    
+                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                    
+                    <div id="dropZone" style="border: 2px dashed ${config.primary_action_color}; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: ${config.primary_action_color}11;">
+                        <p id="uploadText" style="color: ${config.text_color}; opacity: 0.7; pointer-events: none;">
+                            📸 点击上传 / 拖拽图片<br>
+                            <span style="font-size: 12px;">(或在下方直接粘贴链接)</span>
+                        </p>
+                        <img id="imagePreview" src="" style="max-height: 150px; display: none; margin: 0 auto; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                    </div>
+
+                    <input type="text" id="serviceImage" placeholder="粘贴 IG 图片链接 或 ./assets/xxx.png"
+                        class="w-full px-4 py-2 mt-2 rounded-lg border-2 text-sm"
+                        style="font-family: Lato, sans-serif; border-color: ${config.text_color}33; color: ${config.text_color};">
                 </div>
                 
                 <div class="mb-6">
@@ -1927,6 +1949,59 @@ function showServiceModal(config) {
     
     document.body.appendChild(modal);
     
+    // 图片处理逻辑
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const serviceImageInput = document.getElementById('serviceImage');
+    const imagePreview = document.getElementById('imagePreview');
+    const uploadText = document.getElementById('uploadText');
+
+    // 监听手动输入链接，实时预览
+    serviceImageInput.addEventListener('input', () => {
+        const url = serviceImageInput.value;
+        if (url) {
+            imagePreview.src = url;
+            imagePreview.style.display = 'block';
+            uploadText.style.display = 'none';
+        } else {
+            imagePreview.style.display = 'none';
+            uploadText.style.display = 'block';
+        }
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.background = `${config.primary_action_color}33`;
+    });
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.style.background = `${config.primary_action_color}11`;
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.background = `${config.primary_action_color}11`;
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    function handleFile(file) {
+        if (!file) return;
+        if (file.size > 614400) {
+            alert('❌ 图片太大！请使用 500KB 以下的小图。');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            serviceImageInput.value = e.target.result;
+            imagePreview.src = e.target.result;
+            imagePreview.style.display = 'block';
+            uploadText.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+
     document.getElementById('serviceForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -1936,7 +2011,6 @@ function showServiceModal(config) {
             price: parseFloat(document.getElementById('servicePrice').value),
             duration: document.getElementById('serviceDuration').value ? parseInt(document.getElementById('serviceDuration').value) : 0,
             description: document.getElementById('serviceDescription').value,
-            // 【新增】保存图片链接
             imageUrl: document.getElementById('serviceImage').value
         });
         
@@ -2579,6 +2653,119 @@ async function initApp() {
     if (!initResult.isOk) {
         console.error('Failed to initialize Data SDK');
     }
+}
+
+function showEditServiceModal(config, service) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
+            <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
+                编辑服务: ${service.name}
+            </h3>
+            
+            <form id="editServiceForm">
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">服务名称</label>
+                    <input type="text" id="editServiceName" required value="${service.name}"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">价格 (RM)</label>
+                    <input type="number" id="editServicePrice" required min="0" step="0.01" value="${service.price}"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">时长 (分钟)</label>
+                    <input type="number" id="editServiceDuration" min="0" value="${service.duration || 0}"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">服务图片</label>
+                    <input type="file" id="editFileInput" accept="image/*" style="display: none;">
+                    
+                    <div id="editDropZone" style="border: 2px dashed ${config.primary_action_color}; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: ${config.primary_action_color}11;">
+                         <img id="editImagePreview" src="${service.imageUrl || ''}" style="max-height: 150px; margin: 0 auto; border-radius: 8px; display: ${service.imageUrl ? 'block' : 'none'};">
+                        <p id="editUploadText" style="color: ${config.text_color}; opacity: 0.7; pointer-events: none; display: ${service.imageUrl ? 'none' : 'block'};">
+                            📸 点击修改图片<br><span style="font-size: 12px;">(拖拽或粘贴链接)</span>
+                        </p>
+                    </div>
+
+                    <input type="text" id="editServiceImage" placeholder="图片链接..." value="${service.imageUrl || ''}"
+                        class="w-full px-4 py-2 mt-2 rounded-lg border-2 text-sm"
+                        style="font-family: Lato, sans-serif; border-color: ${config.text_color}33; color: ${config.text_color};">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">描述</label>
+                    <textarea id="editServiceDescription" required rows="3"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">${service.description}</textarea>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">保存更改</button>
+                    <button type="button" id="cancelEditServiceBtn" class="flex-1 py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">取消</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 编辑逻辑：图片处理
+    const dropZone = document.getElementById('editDropZone');
+    const fileInput = document.getElementById('editFileInput');
+    const imageInput = document.getElementById('editServiceImage');
+    const preview = document.getElementById('editImagePreview');
+    const text = document.getElementById('editUploadText');
+
+    const updatePreview = (src) => {
+        if (src) {
+            preview.src = src;
+            preview.style.display = 'block';
+            text.style.display = 'none';
+        } else {
+            preview.style.display = 'none';
+            text.style.display = 'block';
+        }
+    };
+
+    imageInput.addEventListener('input', () => updatePreview(imageInput.value));
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+             if (file.size > 307200) { alert('图片太大'); return; }
+             const reader = new FileReader();
+             reader.onload = (evt) => {
+                 imageInput.value = evt.target.result;
+                 updatePreview(evt.target.result);
+             };
+             reader.readAsDataURL(file);
+        }
+    });
+
+    // 提交更新
+    document.getElementById('editServiceForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await updateRecord(service, {
+            name: document.getElementById('editServiceName').value,
+            price: parseFloat(document.getElementById('editServicePrice').value),
+            duration: parseInt(document.getElementById('editServiceDuration').value) || 0,
+            description: document.getElementById('editServiceDescription').value,
+            imageUrl: imageInput.value
+        });
+        modal.remove();
+    });
+    
+    document.getElementById('cancelEditServiceBtn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
 initApp();
