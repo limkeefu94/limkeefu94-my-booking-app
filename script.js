@@ -92,6 +92,7 @@ window.dataSdk = {
 // ------------- 第二部分：原本的业务逻辑 (这里必须粘贴你完整的原始代码) -------------
 // 全局状态
 let allData = [];
+let cart = [];
 let currentMode = 'login';
 let currentView = 'services';
 let isLoading = false;
@@ -615,6 +616,16 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                     </main>
                 </div>
             `;
+            // === 订单管理监听 ===
+    document.querySelectorAll('.completeOrderBtn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const orders = getDataByType('order');
+            const order = orders.find(o => o.id === btn.dataset.id);
+            if (order) {
+                await updateRecord(order, { status: 'completed' });
+            }
+        });
+    });
 
     attachEventListeners(config, services, bookings, posts, customers);
 }
@@ -628,7 +639,6 @@ function renderOwnerView(config, services, bookings, posts, customers) {
         return renderSettings(config);
     }
 
-    // Default: manage view
     const filteredBookings = bookings.filter(b => {
         if (filterStatus === 'all') return true;
         return b.status === filterStatus;
@@ -639,96 +649,132 @@ function renderOwnerView(config, services, bookings, posts, customers) {
             b.serviceName.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
+    const products = getDataByType('product');
+    // 【新增】获取订单数据
+    const orders = getDataByType('order');
+
     return `
         <div>
             <div class="mb-12">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 style="font-size: ${config.font_size * 1.8}px; font-weight: 700; color: ${config.primary_action_color};">
-                        服务管理
-                    </h2>
-                    <button id="addServiceBtn" class="btn-primary px-6 py-3 rounded-lg" style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff;">
-                        + 添加服务
-                    </button>
+                    <h2 style="font-size: ${config.font_size * 1.8}px; font-weight: 700; color: ${config.primary_action_color};">服务管理</h2>
+                    <button id="addServiceBtn" class="btn-primary px-6 py-3 rounded-lg" style="background: ${config.primary_action_color}; color: #ffffff;">+ 添加服务</button>
                 </div>
+                ${services.length === 0 ? '<div class="text-center py-12"><p style="opacity: 0.6;">暂无服务</p></div>' : `
+                    <div class="space-y-4">
+                        ${services.map(service => `
+                            <div style="background: rgba(255, 255, 255, 0.95); padding: 16px; border-radius: 12px; display: flex; gap: 16px; align-items: center;">
+                                <div style="width: 80px; height: 80px; border-radius: 8px; overflow: hidden; flex-shrink: 0;">
+                                    <img src="${service.imageUrl || './assets/default_eye.png'}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='./assets/default_eye.png'">
+                                </div>
+                                <div style="flex: 1;">
+                                    <h3 style="font-weight: 700; color: ${config.text_color};">${service.name}</h3>
+                                    <p style="color: ${config.primary_action_color}; font-weight: 700;">RM${service.price} | ${service.duration}分钟</p>
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <button class="editServiceBtn" data-id="${service.id}" style="background: ${config.primary_action_color}; color: #ffffff; padding: 6px 12px; border-radius: 8px;">✏️ 编辑</button>
+                                    <button class="deleteServiceBtn" data-id="${service.id}" style="background: #ef4444; color: #ffffff; padding: 6px 12px; border-radius: 8px;">🗑️ 删除</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `}
+            </div>
+
+            <div class="mb-12">
+                <h2 class="mb-6" style="font-size: ${config.font_size * 1.8}px; font-weight: 700; color: ${config.secondary_action_color};">
+                    商品订单 (${orders.filter(o => o.status === 'pending').length} 待处理)
+                </h2>
                 
-                ${services.length === 0 ? `
+                ${orders.length === 0 ? `
                     <div class="text-center py-12" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
-                        <div style="font-size: 50px;">💅</div>
-                        <p style="font-family: Lato, sans-serif; color: ${config.text_color}; opacity: 0.6;">还没有添加服务</p>
+                        <div style="font-size: 50px;">📦</div>
+                        <p style="opacity: 0.6;">暂无商品订单</p>
                     </div>
                 ` : `
                     <div class="space-y-4">
-                        ${services.map(service => {
-                            const rating = getServiceRating(service.id);
-                            const ratingCount = getDataByType('rating').filter(r => r.serviceId === service.id).length;
-                            return `
-                                <div style="background: rgba(255, 255, 255, 0.95); padding: 24px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="flex: 1;">
-                                        <div class="flex items-center gap-3 mb-2">
-                                            <h3 style="font-size: ${config.font_size * 1.3}px; font-weight: 700; color: ${config.text_color};">
-                                                ${service.name}
-                                            </h3>
-                                            ${rating > 0 ? `
-                                                <div style="font-size: ${config.font_size * 0.85}px;">
-                                                    ${renderStars(rating)} <span style="font-family: Lato, sans-serif; color: ${config.text_color}; opacity: 0.6;">(${ratingCount})</span>
-                                                </div>
-                                            ` : ''}
-                                        </div>
-                                        <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                            ${service.description}
-                                        </p>
-                                        <p style="font-size: ${config.font_size * 1.1}px; color: ${config.primary_action_color}; font-weight: 700;">
-                                            RM${service.price} | ${service.duration}分钟
-                                        </p>
+                        ${orders.map(order => `
+                            <div style="background: rgba(255, 255, 255, 0.95); padding: 24px; border-radius: 12px; border-left: 5px solid ${order.status === 'completed' ? '#10b981' : config.secondary_action_color};">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 style="font-weight: 700; color: ${config.text_color}; text-transform: uppercase;">
+                                            顾客: ${order.customerName}
+                                        </h3>
+                                        <p style="font-size: 12px; opacity: 0.6;">${new Date(order.createdAt).toLocaleString('zh-CN')}</p>
                                     </div>
-                                     <div class="flex flex-col gap-2">
-                                         <button class="editServiceBtn" data-id="${service.id}" style="background: ${config.primary_action_color}; color: #ffffff; padding: 6px 12px; border-radius: 8px; font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px;">
-                                             ✏️ 编辑
-                                         </button>
-                                         <button class="deleteServiceBtn" data-id="${service.id}" style="background: #ef4444; color: #ffffff; padding: 6px 12px; border-radius: 8px; font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px;">
-                                             🗑️ 删除
-                                        </button>
-                                     </div>
+                                    <span style="background: ${order.status === 'completed' ? '#10b981' : config.secondary_action_color}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
+                                        ${order.status === 'completed' ? '已完成' : '待处理'}
+                                    </span>
                                 </div>
-                            `;
-                        }).join('')}
+                                
+                                <div class="bg-gray-50 p-3 rounded-lg mb-4">
+                                    ${order.items.map(item => `
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>${item.name} x ${item.quantity}</span>
+                                            <span style="font-weight: bold;">RM${(item.price * item.quantity).toFixed(2)}</span>
+                                        </div>
+                                    `).join('')}
+                                    <div class="border-t mt-2 pt-2 flex justify-between font-bold" style="color: ${config.secondary_action_color};">
+                                        <span>总计:</span>
+                                        <span>RM${order.totalAmount}</span>
+                                    </div>
+                                </div>
+                                
+                                ${order.status === 'pending' ? `
+                                    <div class="flex gap-2">
+                                        <button class="completeOrderBtn w-full py-2 rounded-lg" data-id="${order.id}"
+                                            style="background: #10b981; color: white;">
+                                            ✅ 标记为已发货/完成
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `}
+            </div>
+
+            <div class="mb-12">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 style="font-size: ${config.font_size * 1.8}px; font-weight: 700; color: ${config.primary_action_color};">商品管理</h2>
+                    <button id="addProductBtn" class="btn-primary px-6 py-3 rounded-lg" style="background: ${config.secondary_action_color}; color: #ffffff;">+ 上架商品</button>
+                </div>
+                ${products.length === 0 ? '<div class="text-center py-12"><p style="opacity: 0.6;">暂无商品</p></div>' : `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${products.map(product => `
+                            <div style="background: rgba(255, 255, 255, 0.95); padding: 16px; border-radius: 12px; display: flex; gap: 12px; align-items: center;">
+                                <div style="width: 70px; height: 70px; border-radius: 8px; overflow: hidden; flex-shrink: 0;">
+                                    <img src="${product.imageUrl || './assets/default_eye.png'}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='./assets/default_eye.png'">
+                                </div>
+                                <div style="flex: 1;">
+                                    <h3 style="font-weight: 700;">${product.name}</h3>
+                                    <p style="color: ${config.primary_action_color}; font-weight: 700;">RM${product.price}</p>
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <button class="editProductBtn" data-id="${product.id}" style="background: ${config.primary_action_color}; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px;">✏️</button>
+                                    <button class="deleteProductBtn" data-id="${product.id}" style="background: #ef4444; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px;">🗑️</button>
+                                </div>
+                            </div>
+                        `).join('')}
                     </div>
                 `}
             </div>
             
             <div class="mb-12">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 style="font-size: ${config.font_size * 1.8}px; font-weight: 700; color: ${config.primary_action_color};">
-                        动态管理
-                    </h2>
-                    <button id="addPostBtn" class="btn-primary px-6 py-3 rounded-lg" style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff;">
-                        + 发布动态
-                    </button>
+                    <h2 style="font-size: ${config.font_size * 1.8}px; font-weight: 700; color: ${config.primary_action_color};">动态管理</h2>
+                    <button id="addPostBtn" class="btn-primary px-6 py-3 rounded-lg" style="background: ${config.primary_action_color}; color: #ffffff;">+ 发布动态</button>
                 </div>
-                
-                ${posts.length === 0 ? `
-                    <div class="text-center py-12" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
-                        <div style="font-size: 50px;">✨</div>
-                        <p style="font-family: Lato, sans-serif; color: ${config.text_color}; opacity: 0.6;">还没有发布动态</p>
-                    </div>
-                ` : `
+                ${posts.length === 0 ? '<div class="text-center py-12"><p style="opacity: 0.6;">暂无动态</p></div>' : `
                     <div class="space-y-4">
                         ${posts.map(post => `
                             <div style="background: rgba(255, 255, 255, 0.95); padding: 24px; border-radius: 12px; display: flex; justify-content: space-between; align-items: start;">
                                 <div style="flex: 1;">
-                                    <h3 style="font-size: ${config.font_size * 1.3}px; font-weight: 700; color: ${config.text_color}; margin-bottom: 8px;">
-                                        ${post.postTitle}
-                                    </h3>
-                                    <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                        ${post.postContent}
-                                    </p>
-                                    <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.5;">
-                                        ${new Date(post.createdAt).toLocaleString('zh-CN')}
-                                    </p>
+                                    <h3 style="font-weight: 700;">${post.postTitle}</h3>
+                                    <p style="opacity: 0.8; margin-bottom: 8px;">${post.postContent}</p>
+                                    <p style="opacity: 0.5;">${new Date(post.createdAt).toLocaleString('zh-CN')}</p>
                                 </div>
-                                <button class="deletePostBtn" data-id="${post.id}" style="background: #ef4444; color: #ffffff; padding: 8px 20px; border-radius: 8px; font-family: Lato, sans-serif;">
-                                    删除
-                                </button>
+                                <button class="deletePostBtn" data-id="${post.id}" style="background: #ef4444; color: white; padding: 8px 20px; border-radius: 8px;">删除</button>
                             </div>
                         `).join('')}
                     </div>
@@ -736,86 +782,42 @@ function renderOwnerView(config, services, bookings, posts, customers) {
             </div>
             
             <div>
-                <div class="flex justify-between items-center mb-6">
-                    <h2 style="font-size: ${config.font_size * 1.8}px; font-weight: 700; color: ${config.primary_action_color};">
-                        预约管理
-                    </h2>
-                </div>
-                
+                <h2 style="font-size: ${config.font_size * 1.8}px; font-weight: 700; color: ${config.primary_action_color}; margin-bottom: 24px;">预约管理</h2>
                 <div class="mb-6 flex gap-4">
-                    <input type="text" id="searchInput" placeholder="搜索客户、电话或服务..." value="${searchQuery}"
-                        class="flex-1 px-4 py-3 rounded-lg border-2"
-                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                    <select id="filterSelect" class="px-4 py-3 rounded-lg border-2"
-                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                    <input type="text" id="searchInput" placeholder="搜索..." value="${searchQuery}" class="flex-1 px-4 py-3 rounded-lg border-2">
+                    <select id="filterSelect" class="px-4 py-3 rounded-lg border-2">
                         <option value="all" ${filterStatus === 'all' ? 'selected' : ''}>全部状态</option>
                         <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>待确认</option>
                         <option value="completed" ${filterStatus === 'completed' ? 'selected' : ''}>已完成</option>
                         <option value="cancelled" ${filterStatus === 'cancelled' ? 'selected' : ''}>已取消</option>
                     </select>
                 </div>
-                
-                ${filteredBookings.length === 0 ? `
-                    <div class="text-center py-12" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
-                        <div style="font-size: 50px;">📅</div>
-                        <p style="font-family: Lato, sans-serif; color: ${config.text_color}; opacity: 0.6;">
-                            ${bookings.length === 0 ? '暂无预约记录' : '没有符合条件的预约'}
-                        </p>
-                    </div>
-                ` : `
+                ${filteredBookings.length === 0 ? '<div class="text-center py-12"><p style="opacity: 0.6;">暂无预约</p></div>' : `
                     <div class="space-y-4">
-                        ${filteredBookings.map(booking => {
-                            const pointsUsed = booking.points_used || 0;
-                            const settings = getDiscountSettings();
-                            const pointsToRmRate = settings.points_to_rm_rate || 10;
-                            const pointsDiscount = pointsUsed > 0 ? (pointsUsed / pointsToRmRate).toFixed(2) : 0;
-
-                            return `
-                                <div style="background: rgba(255, 255, 255, 0.95); padding: 24px; border-radius: 12px;">
-                                    <div class="flex justify-between">
-                                        <div>
-                                            <h3 style="font-size: ${config.font_size * 1.2}px; font-weight: 700; color: ${config.text_color}; margin-bottom: 12px;">
-                                                ${booking.customerName}
-                                            </h3>
-                                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color}; margin-bottom: 4px;">
-                                                📞 ${booking.customerPhone}
-                                            </p>
-                                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color}; margin-bottom: 4px;">
-                                                💅 ${booking.serviceName}
-                                            </p>
-                                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color}; margin-bottom: 4px;">
-                                                📅 ${booking.appointmentDate} ${booking.appointmentTime}
-                                            </p>
-                                            ${pointsUsed > 0 ? `
-                                                <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.primary_action_color}; margin-bottom: 4px;">
-                                                    ⭐ 使用积分: ${pointsUsed} (-RM${pointsDiscount})
-                                                </p>
-                                            ` : ''}
-                                            <p style="font-size: ${config.font_size * 1.1}px; color: ${config.primary_action_color}; font-weight: 700;">
-                                                RM${booking.totalAmount}
-                                            </p>
-                                        </div>
-                                        <div class="flex flex-col gap-2">
-                                            <span style="background: ${booking.status === 'completed' ? '#10b981' : booking.status === 'cancelled' ? '#ef4444' : config.secondary_action_color}; color: #ffffff; padding: 4px 12px; border-radius: 999px; font-size: ${config.font_size * 0.8}px; font-family: Lato, sans-serif; text-align: center;">
-                                                ${booking.status === 'pending' ? '待确认' : booking.status === 'completed' ? '已完成' : '已取消'}
-                                            </span>
-                                            ${booking.status === 'pending' ? `
-                                                <button class="completeBookingBtn" data-id="${booking.id}" style="background: #10b981; color: #ffffff; padding: 6px 12px; border-radius: 8px; font-size: ${config.font_size * 0.85}px; font-family: Lato, sans-serif;">
-                                                    完成
-                                                </button>
-                                                <button class="cancelBookingBtn" data-id="${booking.id}" style="background: #ef4444; color: #ffffff; padding: 6px 12px; border-radius: 8px; font-size: ${config.font_size * 0.85}px; font-family: Lato, sans-serif;">
-                                                    取消
-                                                </button>
-                                            ` : booking.status === 'completed' ? `
-                                                <button class="rateServiceBtn" data-booking-id="${booking.id}" data-service-id="${booking.serviceId}" style="background: ${config.primary_action_color}; color: #ffffff; padding: 6px 12px; border-radius: 8px; font-size: ${config.font_size * 0.85}px; font-family: Lato, sans-serif;">
-                                                    评价
-                                                </button>
-                                            ` : ''}
-                                        </div>
+                        ${filteredBookings.map(booking => `
+                            <div style="background: rgba(255, 255, 255, 0.95); padding: 24px; border-radius: 12px;">
+                                <div class="flex justify-between">
+                                    <div>
+                                        <h3 style="font-weight: 700; margin-bottom: 12px;">${booking.customerName}</h3>
+                                        <p>📞 ${booking.customerPhone}</p>
+                                        <p>💅 ${booking.serviceName}</p>
+                                        <p>📅 ${booking.appointmentDate} ${booking.appointmentTime}</p>
+                                        <p style="color: ${config.primary_action_color}; font-weight: 700;">RM${booking.totalAmount}</p>
+                                    </div>
+                                    <div class="flex flex-col gap-2">
+                                        <span style="background: ${booking.status === 'completed' ? '#10b981' : booking.status === 'cancelled' ? '#ef4444' : config.secondary_action_color}; color: white; padding: 4px 12px; border-radius: 20px; text-align: center;">
+                                            ${booking.status === 'pending' ? '待确认' : booking.status === 'completed' ? '已完成' : '已取消'}
+                                        </span>
+                                        ${booking.status === 'pending' ? `
+                                            <button class="completeBookingBtn" data-id="${booking.id}" style="background: #10b981; color: white; padding: 6px 12px; border-radius: 8px;">完成</button>
+                                            <button class="cancelBookingBtn" data-id="${booking.id}" style="background: #ef4444; color: white; padding: 6px 12px; border-radius: 8px;">取消</button>
+                                        ` : booking.status === 'completed' ? `
+                                            <button class="rateServiceBtn" data-booking-id="${booking.id}" data-service-id="${booking.serviceId}" style="background: ${config.primary_action_color}; color: white; padding: 6px 12px; border-radius: 8px;">评价</button>
+                                        ` : ''}
                                     </div>
                                 </div>
-                            `;
-                        }).join('')}
+                            </div>
+                        `).join('')}
                     </div>
                 `}
             </div>
@@ -1033,119 +1035,78 @@ function renderCustomersManagement(config, customers, bookings) {
 
 function renderSettings(config) {
     const discountSettings = getDiscountSettings();
-
+    
     return `
-                <div>
-                    <h2 class="mb-8" style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color};">
+        <div>
+            <h2 class="mb-8" style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color};">
                 系统设置
-                     </h2>
+            </h2>
             
-                      <div class="mb-8" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
-                          <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
-                              👤 修改业主登录信息
-                         </h3>
-                
-                         <form id="changeCredentialsForm">
-                            <div class="mb-4">
-                              <label for="newUsername" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                   新用户名 (当前: ${ownerCredentials.username})
-                              </label>
-                              <input type="text" id="newUsername" value="${ownerCredentials.username}" required
-                                  class="w-full px-4 py-3 rounded-lg border-2"
-                                  style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-
-                        <div class="mb-4">
-                             <label for="newPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                 新密码 (不改请留空)
-                             </label>
-                             <input type="password" id="newPassword" placeholder="输入新密码"
-                                 class="w-full px-4 py-3 rounded-lg border-2"
-                                 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-                    
-                        <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
-                            style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                            保存修改
-                        </button>
-                   </form>
-               </div>
+            <div class="mb-8" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
+                <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
+                    👤 修改业主登录信息
+                </h3>
+                <form id="changeCredentialsForm">
+                    <div class="mb-4">
+                        <label class="block mb-2" style="font-size: ${config.font_size * 0.9}px;">新用户名 (当前: ${ownerCredentials.username})</label>
+                        <input type="text" id="newUsername" value="${ownerCredentials.username}" required class="w-full px-4 py-3 rounded-lg border-2">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block mb-2" style="font-size: ${config.font_size * 0.9}px;">新密码 (不改请留空)</label>
+                        <input type="password" id="newPassword" placeholder="输入新密码" class="w-full px-4 py-3 rounded-lg border-2">
+                    </div>
+                    <button type="submit" class="btn-primary px-8 py-3 rounded-lg" style="background: ${config.primary_action_color}; color: #ffffff;">保存修改</button>
+                </form>
+            </div>
             
-               <div class="mb-8" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
-                   <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
-                       💰 积分兑换率设置
-                   </h3>
+            <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
+                <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
+                    ⚙️ 功能开关
+                </h3>
                 
-                   <form id="pointsRateForm">
-                        <div class="mb-4" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px;">
-                            <label for="pointsToRmRate" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                多少积分 = 1 RM
-                            </label>
-                            <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}" min="1"
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.7; margin-top: 8px;">
-                                 例如：设置为10表示10积分可抵扣1RM
-                            </p>
-                        </div>
-                    
-                        <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
-                            style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                            保存兑换率设置
-                        </button>
-                    </form>
-                </div>
-            
-                <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
-                    <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
-                        🎁 会员折扣设置
-                    </h3>
-                
-                    <form id="discountSettingsForm">
-                    
+                <form id="discountSettingsForm">
                     <div class="mb-6 flex items-center justify-between" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px; border: 2px solid ${config.primary_action_color};">
                         <div>
-                            <h4 style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; font-weight: 700;">
-                                启用积分与会员奖励
-                            </h4>
-                            <p style="font-size: ${config.font_size * 0.85}px; opacity: 0.7;">
-                                关闭后，客户将看不到积分和会员等级
-                            </p>
+                            <h4 style="font-weight: 700; color: ${config.text_color};">启用积分与会员奖励</h4>
+                            <p style="font-size: 12px; opacity: 0.7;">关闭后隐藏积分和等级</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="enableRewards" class="sr-only peer" ${discountSettings.enable_rewards !== false ? 'checked' : ''}>
                             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[${config.primary_action_color}]"></div>
                         </label>
                     </div>
-                        ${['bronze', 'silver', 'gold', 'platinum'].map(level => {
-        const levelName = level === 'bronze' ? '🥉 铜牌会员' : level === 'silver' ? '🥈 银牌会员' : level === 'gold' ? '🥇 金牌会员' : '💎 白金会员';
-        return `
-                                <div class="mb-6" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px; border-left: 4px solid ${config.primary_action_color};">
-                                    <h4 style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; font-weight: 600; margin-bottom: 12px;">
-                                        ${levelName}
-                                    </h4>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>      
-                                        <label class="block mb-2" style="font-size: ${config.font_size * 0.85}px;">所需积分</label>
-                                        <input type="number" id="${level}Points" value="${discountSettings[level + '_points']}" min="0" class="w-full px-3 py-2 rounded-lg border-2">
-                                      </div>
-                                      <div>
-                                           <label class="block mb-2" style="font-size: ${config.font_size * 0.85}px;">折扣 (%)</label>
-                                           <input type="number" id="${level}Discount" value="${discountSettings[level + '_discount']}" min="0" max="100" class="w-full px-3 py-2 rounded-lg border-2">
-                                       </div>
-                                   </div>
-                               </div>
-                           `;
-    }).join('')}
+
+                    <div class="mb-8 flex items-center justify-between" style="padding: 16px; background: ${config.secondary_action_color}11; border-radius: 12px; border: 2px solid ${config.secondary_action_color};">
+                        <div>
+                            <h4 style="font-weight: 700; color: ${config.text_color};">启用购物车 (在线售卖)</h4>
+                            <p style="font-size: 12px; opacity: 0.7;">关闭后仅展示商品，无法下单</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="enableShop" class="sr-only peer" ${discountSettings.enable_shop !== false ? 'checked' : ''}>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[${config.secondary_action_color}]"></div>
+                        </label>
+                    </div>
+
+                    <div style="display: none;">
+                        <input type="number" id="bronzePoints" value="${discountSettings.bronze_points || 0}">
+                        <input type="number" id="bronzeDiscount" value="${discountSettings.bronze_discount || 0}">
+                        <input type="number" id="silverPoints" value="${discountSettings.silver_points || 100}">
+                        <input type="number" id="silverDiscount" value="${discountSettings.silver_discount || 5}">
+                        <input type="number" id="goldPoints" value="${discountSettings.gold_points || 300}">
+                        <input type="number" id="goldDiscount" value="${discountSettings.gold_discount || 10}">
+                        <input type="number" id="platinumPoints" value="${discountSettings.platinum_points || 600}">
+                        <input type="number" id="platinumDiscount" value="${discountSettings.platinum_discount || 15}">
+                        <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}">
+                    </div>
                     
-                        <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
-                            style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                            保存折扣设置
-                        </button>
-                    </form>
-                </div>
+                    <button type="submit" class="btn-primary px-8 py-3 rounded-lg"
+                        style="background: ${config.primary_action_color}; color: #ffffff;">
+                        保存设置
+                    </button>
+                </form>
             </div>
-            `;
+        </div>
+    `;
 }
 
 function renderCustomerView(config, services, bookings, posts) {
@@ -1155,10 +1116,16 @@ function renderCustomerView(config, services, bookings, posts) {
         return renderProfile(config, bookings);
     }
 
-    // Default: services view
     const customerAccount = loggedInCustomerName ? 
         getDataByType('customer_account').find(acc => acc.username === loggedInCustomerName) : null;
     const memberDiscount = customerAccount ? getMembershipDiscount(customerAccount.membershipLevel) : 0;
+    const products = getDataByType('product');
+    
+    // 【关键】获取开关状态
+    const settings = getDiscountSettings();
+    const isShopEnabled = settings.enable_shop !== false;
+    
+    const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
     return `
         <div>
@@ -1177,65 +1144,33 @@ function renderCustomerView(config, services, bookings, posts) {
             ${services.length === 0 ? `
                 <div class="text-center py-16" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
                     <div style="font-size: 60px;">💅</div>
-                    <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; opacity: 0.6;">
-                        精彩服务即将推出
-                    </p>
+                    <p style="font-family: Lato, sans-serif; opacity: 0.6;">精彩服务即将推出</p>
                 </div>
             ` : `
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
                     ${services.map(service => {
                         const rating = getServiceRating(service.id);
                         const ratingCount = getDataByType('rating').filter(r => r.serviceId === service.id).length;
                         const originalPrice = service.price;
                         const discountedPrice = memberDiscount > 0 ? (originalPrice * (1 - memberDiscount)).toFixed(2) : null;
-                        
-                        // 【核心逻辑】决定显示哪张图
-                        // 1. 如果有上传的图，就用上传的
-                        // 2. 如果没有，就用本地的 default_eye.png
-                        const displayImage = service.imageUrl ? service.imageUrl : './assets/default_eye.png';
+                        const displayImage = service.imageUrl || './assets/default_eye.png';
 
                         return `
-                            <div class="service-card group" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: transform 0.2s;">
-                                <div style="height: 240px; overflow: hidden; position: relative;">
-                                    <img src="${displayImage}" alt="${service.name}" 
-                                         onerror="this.src='./assets/default_eye.png'" 
-                                         style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s;">
-                                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 50%);"></div>
+                            <div class="service-card group" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                <div style="height: 240px; overflow: hidden;">
+                                    <img src="${displayImage}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='./assets/default_eye.png'">
                                 </div>
-                                
-                                <div class="p-6 relative">
-                                    <h3 class="mb-2" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">
-                                        ${service.name}
-                                    </h3>
-                                    ${rating > 0 ? `
-                                        <div class="mb-3" style="font-size: ${config.font_size * 0.85}px;">
-                                            ${renderStars(rating)} <span style="font-family: Lato, sans-serif; color: ${config.text_color}; opacity: 0.6;">${rating} (${ratingCount})</span>
-                                        </div>
-                                    ` : ''}
-                                    <p class="mb-4 line-clamp-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color}; opacity: 0.8; height: 3em;">
-                                        ${service.description}
-                                    </p>
+                                <div class="p-6">
+                                    <h3 class="mb-2" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">${service.name}</h3>
+                                    ${rating > 0 ? `<div class="mb-3">${renderStars(rating)} <span style="opacity: 0.6;">(${ratingCount})</span></div>` : ''}
+                                    <p class="mb-4 line-clamp-2" style="opacity: 0.8; height: 3em;">${service.description}</p>
                                     <div class="flex items-center justify-between mb-6">
                                         <p style="font-size: ${config.font_size * 1.5}px; color: ${config.primary_action_color}; font-weight: 700;">
-                                            ${discountedPrice ? `
-                                                <span style="text-decoration: line-through; opacity: 0.5; font-size: ${config.font_size * 1.1}px; color: ${config.text_color};">RM${originalPrice}</span>
-                                                <span style="margin-left: 8px;">RM${discountedPrice}</span>
-                                            ` : `RM${originalPrice}`}
+                                            ${discountedPrice ? `<span style="text-decoration: line-through; opacity: 0.5; font-size: ${config.font_size}px; color: ${config.text_color};">RM${originalPrice}</span> RM${discountedPrice}` : `RM${originalPrice}`}
                                         </p>
-                                        ${service.duration > 0 ? `
-                                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; background: ${config.primary_action_color}11; color: ${config.primary_action_color}; padding: 4px 10px; border-radius: 20px;">
-                                                ⏱️ ${service.duration}分
-                                            </span>
-                                        ` : ''}
+                                        ${service.duration > 0 ? `<span style="background: ${config.primary_action_color}11; color: ${config.primary_action_color}; padding: 4px 10px; border-radius: 20px;">⏱️ ${service.duration}分</span>` : ''}
                                     </div>
-                                    
-                                    <button class="bookServiceBtn btn-primary w-full py-3 rounded-lg shadow-md hover:shadow-lg transition-all" 
-                                        data-service-id="${service.id}" 
-                                        data-service-name="${service.name}" 
-                                        data-service-price="${discountedPrice || originalPrice}"
-                                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff;">
-                                        立即预约 ✨
-                                    </button>
+                                    <button class="bookServiceBtn btn-primary w-full py-3 rounded-lg" data-service-id="${service.id}" data-service-name="${service.name}" data-service-price="${discountedPrice || originalPrice}" style="background: ${config.primary_action_color}; color: #ffffff;">立即预约 ✨</button>
                                 </div>
                             </div>
                         `;
@@ -1243,34 +1178,72 @@ function renderCustomerView(config, services, bookings, posts) {
                 </div>
             `}
             
-            <h2 class="mt-16 mb-8 text-center" style="font-size: ${config.font_size * 2}px; font-weight: 700; background: linear-gradient(135deg, ${config.primary_action_color} 0%, ${config.secondary_action_color} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            ${products.length > 0 ? `
+                <h2 class="mb-8 text-center" style="font-size: ${config.font_size * 2}px; font-weight: 700; background: linear-gradient(135deg, ${config.primary_action_color} 0%, ${config.secondary_action_color} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    好物推荐
+                </h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-16">
+                    ${products.map(product => {
+                        const displayImage = product.imageUrl || './assets/default_eye.png';
+                        return `
+                            <div class="product-card" data-id="${product.id}" style="background: rgba(255, 255, 255, 0.95); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s;">
+                                <div style="height: 180px; overflow: hidden;">
+                                    <img src="${displayImage}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='./assets/default_eye.png'">
+                                </div>
+                                <div class="p-4">
+                                    <h3 class="mb-1" style="font-size: ${config.font_size * 1.1}px; font-weight: 700; color: ${config.text_color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        ${product.name}
+                                    </h3>
+                                    <p class="mb-3" style="font-size: ${config.font_size * 1.2}px; color: ${config.primary_action_color}; font-weight: 700;">
+                                        RM${product.price}
+                                    </p>
+                                    
+                                    ${isShopEnabled ? `
+                                        <button class="addToCartBtn w-full py-2 rounded-lg" 
+                                            data-id="${product.id}"
+                                            onclick="event.stopPropagation(); addToCart('${product.id}')"
+                                            style="background: ${config.secondary_action_color}; color: #ffffff; font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px;">
+                                            加入购物车 🛒
+                                        </button>
+                                    ` : `
+                                        <div style="text-align: center; color: ${config.secondary_action_color}; font-size: 12px; opacity: 0.7;">
+                                            查看详情 >
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            ` : ''}
+
+            <h2 class="mt-8 mb-8 text-center" style="font-size: ${config.font_size * 2}px; font-weight: 700; background: linear-gradient(135deg, ${config.primary_action_color} 0%, ${config.secondary_action_color} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                 ${config.posts_title}
             </h2>
             
-            ${posts.length === 0 ? `
-                <div class="text-center py-16" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
-                    <div style="font-size: 60px;">✨</div>
-                    <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; opacity: 0.6;">
-                        暂无动态分享
-                    </p>
-                </div>
-            ` : `
-                <div class="space-y-8">
+            ${posts.length > 0 ? `
+                <div class="space-y-8 mb-24">
                     ${posts.map(post => `
                         <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                            <h3 class="mb-4" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                                ${post.postTitle}
-                            </h3>
-                            <p class="mb-4" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.05}px; color: ${config.text_color}; opacity: 0.8; line-height: 1.8;">
-                                ${post.postContent}
-                            </p>
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.5;">
-                                ${new Date(post.createdAt).toLocaleString('zh-CN')}
-                            </p>
+                            <h3 class="mb-4" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">${post.postTitle}</h3>
+                            <p class="mb-4" style="opacity: 0.8; line-height: 1.8;">${post.postContent}</p>
+                            <p style="opacity: 0.5;">${new Date(post.createdAt).toLocaleString('zh-CN')}</p>
                         </div>
                     `).join('')}
                 </div>
-            `}
+            ` : '<div class="text-center py-16"><p style="opacity: 0.6;">暂无动态</p></div>'}
+            
+            ${isShopEnabled ? `
+                <div id="cartFab" class="fixed bottom-8 right-6 z-40 cursor-pointer shadow-lg hover:scale-110 transition-transform"
+                    style="background: ${config.secondary_action_color}; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 4px solid #fff;">
+                    <span style="font-size: 24px;">🛒</span>
+                    ${cartCount > 0 ? `
+                        <div style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; border: 2px solid #fff;">
+                            ${cartCount}
+                        </div>
+                    ` : ''}
+                </div>
+            ` : ''}
         </div>
     `;
 }
@@ -1560,7 +1533,7 @@ function attachEventListeners(config, services, bookings, posts, customers) {
     document.getElementById('addServiceBtn')?.addEventListener('click', () => {
         showServiceModal(config);
     });
-    
+
     document.querySelectorAll('.editServiceBtn').forEach(btn => {
         btn.addEventListener('click', () => {
             const service = services.find(s => s.id === btn.dataset.id);
@@ -1726,16 +1699,17 @@ function attachEventListeners(config, services, bookings, posts, customers) {
         }
     });
 
-    // Discount settings form
+ // 折扣设置表单提交
     document.getElementById('discountSettingsForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
-
+        
         const newSettings = {
             type: 'discount_settings',
-            // 【新增】保存开关状态
             enable_rewards: document.getElementById('enableRewards').checked,
-
-            // 下面是原有的
+            // 【新增】保存购物车开关
+            enable_shop: document.getElementById('enableShop').checked,
+            
+            // 保持原有数据
             bronze_points: parseInt(document.getElementById('bronzePoints').value),
             bronze_discount: parseInt(document.getElementById('bronzeDiscount').value),
             silver_points: parseInt(document.getElementById('silverPoints').value),
@@ -1744,21 +1718,73 @@ function attachEventListeners(config, services, bookings, posts, customers) {
             gold_discount: parseInt(document.getElementById('goldDiscount').value),
             platinum_points: parseInt(document.getElementById('platinumPoints').value),
             platinum_discount: parseInt(document.getElementById('platinumDiscount').value),
-
-            // 还要保留兑换率，不然会丢失
-            points_to_rm_rate: getDiscountSettings().points_to_rm_rate || 10
+            points_to_rm_rate: parseInt(document.getElementById('pointsToRmRate').value)
         };
-
+        
         const existingSettings = getDataByType('discount_settings')[0];
         if (existingSettings) {
             await updateRecord(existingSettings, newSettings);
         } else {
             await createRecord(newSettings);
         }
-
-        // 重新计算所有人的等级(如果需要的话)并刷新页面
         renderApp();
         showToast('设置已保存！');
+    });
+
+    // === 商品管理监听 (新增) ===
+    
+    // 1. 上架商品按钮
+    document.getElementById('addProductBtn')?.addEventListener('click', () => {
+        showProductModal(config);
+    });
+
+    // 2. 编辑商品按钮
+    document.querySelectorAll('.editProductBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const products = getDataByType('product');
+            const product = products.find(p => p.id === btn.dataset.id);
+            if (product) {
+                showEditProductModal(config, product);
+            }
+        });
+    });
+
+    // === 顾客购物车监听 ===
+    
+    // 1. "加入购物车" 按钮
+    document.querySelectorAll('.addToCartBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            addToCart(btn.dataset.id);
+        });
+    });
+
+    // 2. 悬浮购物车图标
+    document.getElementById('cartFab')?.addEventListener('click', () => {
+        showCartModal(config);
+    });
+
+    // 3. 删除商品按钮
+    document.querySelectorAll('.deleteProductBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const products = getDataByType('product');
+            const product = products.find(p => p.id === btn.dataset.id);
+            if (product) {
+                showConfirmModal(config, `确定要下架 "${product.name}" 吗？`, async () => {
+                    await deleteRecord(product);
+                });
+            }
+        });
+    });
+
+    // === 监听商品卡片点击 (查看详情) ===
+    document.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const products = getDataByType('product');
+            const product = products.find(p => p.id === card.dataset.id);
+            if (product) {
+                showProductDetailModal(config, product);
+            }
+        });
     });
 }
 
@@ -2769,3 +2795,375 @@ function showEditServiceModal(config, service) {
 }
 
 initApp();
+
+// ==================== 商品管理功能 ====================
+
+function showProductModal(config) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
+            <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
+                上架新商品
+            </h3>
+            
+            <form id="productForm">
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品名称</label>
+                    <input type="text" id="productName" required
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">价格 (RM)</label>
+                    <input type="number" id="productPrice" required min="0" step="0.01"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品图片</label>
+                    <input type="file" id="prodFileInput" accept="image/*" style="display: none;">
+                    
+                    <div id="prodDropZone" style="border: 2px dashed ${config.primary_action_color}; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: ${config.primary_action_color}11;">
+                        <p id="prodUploadText" style="color: ${config.text_color}; opacity: 0.7; pointer-events: none;">
+                            🛍️ 点击上传商品图<br><span style="font-size: 12px;">(支持拖拽或粘贴链接)</span>
+                        </p>
+                        <img id="prodImagePreview" src="" style="max-height: 150px; display: none; margin: 0 auto; border-radius: 8px;">
+                    </div>
+
+                    <input type="text" id="productImage" placeholder="图片链接..." 
+                        class="w-full px-4 py-2 mt-2 rounded-lg border-2 text-sm" style="font-family: Lato, sans-serif; border-color: ${config.text_color}33; color: ${config.text_color};">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品描述</label>
+                    <textarea id="productDescription" required rows="3"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;"></textarea>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">上架商品</button>
+                    <button type="button" id="cancelProductBtn" class="flex-1 py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">取消</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 图片逻辑复用
+    const dropZone = document.getElementById('prodDropZone');
+    const fileInput = document.getElementById('prodFileInput');
+    const imageInput = document.getElementById('productImage');
+    const preview = document.getElementById('prodImagePreview');
+    const text = document.getElementById('prodUploadText');
+
+    const updatePreview = (src) => {
+        if (src) { preview.src = src; preview.style.display = 'block'; text.style.display = 'none'; }
+        else { preview.style.display = 'none'; text.style.display = 'block'; }
+    };
+    imageInput.addEventListener('input', () => updatePreview(imageInput.value));
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+             if (file.size > 307200) { alert('图片太大'); return; }
+             const reader = new FileReader();
+             reader.onload = (evt) => { imageInput.value = evt.target.result; updatePreview(evt.target.result); };
+             reader.readAsDataURL(file);
+        }
+    });
+
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const success = await createRecord({
+            type: 'product',
+            name: document.getElementById('productName').value,
+            price: parseFloat(document.getElementById('productPrice').value),
+            description: document.getElementById('productDescription').value,
+            imageUrl: imageInput.value
+        });
+        if (success) modal.remove();
+    });
+    
+    document.getElementById('cancelProductBtn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+function showEditProductModal(config, product) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
+            <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
+                编辑商品: ${product.name}
+            </h3>
+            
+            <form id="editProductForm">
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品名称</label>
+                    <input type="text" id="editProductName" required value="${product.name}"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">价格 (RM)</label>
+                    <input type="number" id="editProductPrice" required min="0" step="0.01" value="${product.price}"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品图片</label>
+                    <input type="file" id="editProdFileInput" accept="image/*" style="display: none;">
+                    <div id="editProdDropZone" style="border: 2px dashed ${config.primary_action_color}; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: ${config.primary_action_color}11;">
+                        <img id="editProdImagePreview" src="${product.imageUrl || ''}" style="max-height: 150px; margin: 0 auto; border-radius: 8px; display: ${product.imageUrl ? 'block' : 'none'};">
+                        <p id="editProdUploadText" style="color: ${config.text_color}; opacity: 0.7; pointer-events: none; display: ${product.imageUrl ? 'none' : 'block'};">
+                            📸 点击修改图片
+                        </p>
+                    </div>
+                    <input type="text" id="editProductImage" value="${product.imageUrl || ''}"
+                        class="w-full px-4 py-2 mt-2 rounded-lg border-2 text-sm" style="font-family: Lato, sans-serif; border-color: ${config.text_color}33; color: ${config.text_color};">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品描述</label>
+                    <textarea id="editProductDescription" required rows="3"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">${product.description}</textarea>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">保存更改</button>
+                    <button type="button" id="cancelEditProductBtn" class="flex-1 py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">取消</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const dropZone = document.getElementById('editProdDropZone');
+    const fileInput = document.getElementById('editProdFileInput');
+    const imageInput = document.getElementById('editProductImage');
+    const preview = document.getElementById('editProdImagePreview');
+    const text = document.getElementById('editProdUploadText');
+
+    const updatePreview = (src) => {
+        if (src) { preview.src = src; preview.style.display = 'block'; text.style.display = 'none'; }
+        else { preview.style.display = 'none'; text.style.display = 'block'; }
+    };
+    imageInput.addEventListener('input', () => updatePreview(imageInput.value));
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+             if (file.size > 307200) { alert('图片太大'); return; }
+             const reader = new FileReader();
+             reader.onload = (evt) => { imageInput.value = evt.target.result; updatePreview(evt.target.result); };
+             reader.readAsDataURL(file);
+        }
+    });
+
+    document.getElementById('editProductForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await updateRecord(product, {
+            name: document.getElementById('editProductName').value,
+            price: parseFloat(document.getElementById('editProductPrice').value),
+            description: document.getElementById('editProductDescription').value,
+            imageUrl: imageInput.value
+        });
+        modal.remove();
+    });
+    
+    document.getElementById('cancelEditProductBtn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+// ==================== 购物车逻辑 ====================
+
+// 1. 添加商品到购物车
+function addToCart(productId) {
+    const products = getDataByType('product');
+    const product = products.find(p => p.id === productId);
+    
+    if (!product) return;
+    
+    // 检查购物车里是不是已经有这个东西了
+    const existingItem = cart.find(item => item.id === productId);
+    
+    if (existingItem) {
+        existingItem.quantity += 1; // 有就加数量
+    } else {
+        cart.push({
+            ...product,
+            quantity: 1
+        }); // 没有就新加
+    }
+    
+    showToast(`🛒 已加入: ${product.name}`);
+    renderApp(); // 刷新页面更新小红点
+}
+
+// 2. 显示购物车详情弹窗
+function showCartModal(config) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    
+    // 计算总价
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2);
+    
+    modal.innerHTML = `
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 24px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.secondary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 80vh; overflow-y: auto;">
+            <div class="flex justify-between items-center mb-6">
+                <h3 style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.secondary_action_color};">
+                    购物车 🛒
+                </h3>
+                <button id="closeCartBtn" style="background: none; border: none; font-size: 24px; color: ${config.text_color}; cursor: pointer;">✕</button>
+            </div>
+            
+            ${cart.length === 0 ? `
+                <div class="text-center py-8">
+                    <p style="opacity: 0.6;">购物车是空的，快去选购吧！</p>
+                </div>
+            ` : `
+                <div class="space-y-4 mb-6">
+                    ${cart.map((item, index) => `
+                        <div class="flex justify-between items-center p-3 rounded-lg" style="background: ${config.secondary_action_color}11;">
+                            <div class="flex-1">
+                                <h4 style="font-weight: 700; color: ${config.text_color};">${item.name}</h4>
+                                <p style="font-size: ${config.font_size * 0.9}px; color: ${config.secondary_action_color};">
+                                    RM${item.price} x ${item.quantity}
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span style="font-weight: 700;">RM${(item.price * item.quantity).toFixed(2)}</span>
+                                <button class="removeFromCartBtn text-red-500" data-index="${index}" style="padding: 4px 8px;">🗑️</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="flex justify-between items-center pt-4 border-t-2 border-gray-100 mb-6">
+                    <span style="font-size: ${config.font_size * 1.1}px; font-weight: 700;">总计:</span>
+                    <span style="font-size: ${config.font_size * 1.5}px; font-weight: 700; color: ${config.secondary_action_color};">RM${total}</span>
+                </div>
+                
+                <button id="checkoutBtn" class="w-full btn-primary py-3 rounded-lg font-bold shadow-md"
+                    style="background: ${config.secondary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+                    提交订单 (WhatsApp)
+                </button>
+            `}
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 绑定事件
+    document.getElementById('closeCartBtn').addEventListener('click', () => modal.remove());
+    
+    // 删除单个商品
+    document.querySelectorAll('.removeFromCartBtn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            cart.splice(index, 1); // 移除该项
+            modal.remove(); // 关闭旧弹窗
+            showCartModal(config); // 重新打开刷新
+            renderApp(); // 刷新主页更新小红点
+        });
+    });
+    
+    // 结算按钮 (目前先做一个简单的模拟结算)
+    document.getElementById('checkoutBtn')?.addEventListener('click', async () => {
+        if (!loggedInCustomerName) {
+            showToast('请先登录后再提交订单');
+            return;
+        }
+        
+        // 创建订单记录
+        const success = await createRecord({
+            type: 'order', // 新的数据类型：订单
+            customerName: loggedInCustomerName,
+            items: cart,
+            totalAmount: total,
+            status: 'pending'
+        });
+        
+        if (success) {
+            showToast('🎉 订单已提交！我们要联系您安排发货。');
+            cart = []; // 清空购物车
+            modal.remove();
+            renderApp();
+        }
+    });
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+}
+
+// === 商品详情弹窗 (新增) ===
+function showProductDetailModal(config, product) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    
+    // 获取购物车开关状态
+    const settings = getDiscountSettings();
+    const isShopEnabled = settings.enable_shop !== false; // 默认为开启
+    const displayImage = product.imageUrl || './assets/default_eye.png';
+
+    modal.innerHTML = `
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 0; border-radius: 16px; max-width: 400px; width: 100%; border: 2px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;">
+            <div style="height: 300px; overflow: hidden; position: relative;">
+                <img src="${displayImage}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='./assets/default_eye.png'">
+                <button id="closeDetailBtn" style="position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.5); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer;">✕</button>
+            </div>
+            
+            <div class="p-6">
+                <h3 class="mb-2" style="font-size: ${config.font_size * 1.5}px; font-weight: 700; color: ${config.primary_action_color};">
+                    ${product.name}
+                </h3>
+                <p class="mb-4" style="font-size: ${config.font_size * 1.4}px; color: ${config.secondary_action_color}; font-weight: 700;">
+                    RM${product.price}
+                </p>
+                
+                <div class="mb-6 p-4 rounded-lg" style="background: ${config.primary_action_color}11;">
+                    <p style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color}; opacity: 0.8; line-height: 1.6;">
+                        ${product.description}
+                    </p>
+                </div>
+
+                ${isShopEnabled ? `
+                    <button id="detailAddToCartBtn" class="w-full btn-primary py-3 rounded-lg shadow-md"
+                        style="background: ${config.secondary_action_color}; color: #ffffff; font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; font-weight: bold;">
+                        加入购物车 🛒
+                    </button>
+                ` : `
+                    <button disabled class="w-full py-3 rounded-lg"
+                        style="background: #e5e7eb; color: #9ca3af; font-family: Lato, sans-serif; font-size: ${config.font_size}px;">
+                        仅供展示
+                    </button>
+                `}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 关闭按钮
+    document.getElementById('closeDetailBtn').addEventListener('click', () => modal.remove());
+    
+    // 详情页里的加入购物车
+    if (isShopEnabled) {
+        document.getElementById('detailAddToCartBtn').addEventListener('click', () => {
+            addToCart(product.id);
+            modal.remove();
+        });
+    }
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+}
