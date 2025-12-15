@@ -1151,108 +1151,123 @@ function renderCustomerView(config, services, bookings, posts) {
     }
 
     // Default: services view
-    const customerAccount = loggedInCustomerName ?
+    const customerAccount = loggedInCustomerName ? 
         getDataByType('customer_account').find(acc => acc.username === loggedInCustomerName) : null;
     const memberDiscount = customerAccount ? getMembershipDiscount(customerAccount.membershipLevel) : 0;
 
     return `
-                <div>
-                    ${customerAccount && memberDiscount > 0 ? `
-                        <div class="mb-8 text-center p-6" style="background: linear-gradient(135deg, ${config.primary_action_color}22 0%, ${config.secondary_action_color}22 100%); border-radius: 16px; border: 2px solid ${config.primary_action_color};">
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.2}px; color: ${config.text_color}; font-weight: 600;">
-                                🎉 您的${getMembershipBadge(customerAccount.membershipLevel, config)}享受 <span style="color: ${config.primary_action_color}; font-size: ${config.font_size * 1.4}px;">${memberDiscount * 100}%折扣</span> 优惠！
-                            </p>
-                        </div>
-                    ` : ''}
-                    
-                    <h2 class="mb-8 text-center" style="font-size: ${config.font_size * 2}px; font-weight: 700; background: linear-gradient(135deg, ${config.primary_action_color} 0%, ${config.secondary_action_color} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                        我们的服务
-                    </h2>
-                    
-                    ${services.length === 0 ? `
-                        <div class="text-center py-16" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
-                            <div style="font-size: 60px;">💅</div>
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; opacity: 0.6;">
-                                精彩服务即将推出
-                            </p>
-                        </div>
-                    ` : `
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            ${services.map(service => {
-        const rating = getServiceRating(service.id);
-        const ratingCount = getDataByType('rating').filter(r => r.serviceId === service.id).length;
-        const originalPrice = service.price;
-        const discountedPrice = memberDiscount > 0 ? (originalPrice * (1 - memberDiscount)).toFixed(2) : null;
-
-        return `
-                                    <div class="service-card" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                                        <div style="height: 224px; background: linear-gradient(135deg, ${config.primary_action_color}22 0%, ${config.secondary_action_color}22 100%); display: flex; align-items: center; justify-content: center; font-size: ${config.font_size * 4}px;">
-                                            💅
-                                        </div>
-                                        <div class="p-6">
-                                            <h3 class="mb-2" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">
-                                                ${service.name}
-                                            </h3>
-                                            ${rating > 0 ? `
-                                                <div class="mb-3" style="font-size: ${config.font_size * 0.85}px;">
-                                                    ${renderStars(rating)} <span style="font-family: Lato, sans-serif; color: ${config.text_color}; opacity: 0.6;">${rating} (${ratingCount})</span>
-                                                </div>
-                                            ` : ''}
-                                            <p class="mb-4" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color}; opacity: 0.8;">
-                                                ${service.description}
-                                            </p>
-                                            <p class="mb-4" style="font-size: ${config.font_size * 1.5}px; color: ${config.primary_action_color}; font-weight: 700;">
-                                                ${discountedPrice ? `
-                                                    <span style="text-decoration: line-through; opacity: 0.5; font-size: ${config.font_size * 1.1}px;">RM${originalPrice}</span>
-                                                    <span style="margin-left: 8px;">RM${discountedPrice}</span>
-                                                ` : `RM${originalPrice}`}
-                                                <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; font-weight: 400;"> | ${service.duration}分钟</span>
-                                            </p>
-                                            <button class="bookServiceBtn btn-primary w-full py-3 rounded-lg" 
-                                                data-service-id="${service.id}"
-                                                data-service-name="${service.name}"
-                                                data-service-price="${discountedPrice || originalPrice}"
-                                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff;">
-                                                立即预约 ✨
-                                            </button>
-                                        </div>
-                                    </div>
-                                `;
-    }).join('')}
-                        </div>
-                    `}
-                    
-                    <!-- Posts Section -->
-                    <h2 class="mt-16 mb-8 text-center" style="font-size: ${config.font_size * 2}px; font-weight: 700; background: linear-gradient(135deg, ${config.primary_action_color} 0%, ${config.secondary_action_color} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                        ${config.posts_title}
-                    </h2>
-                    
-                    ${posts.length === 0 ? `
-                        <div class="text-center py-16" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
-                            <div style="font-size: 60px;">✨</div>
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; opacity: 0.6;">
-                                暂无动态分享
-                            </p>
-                        </div>
-                    ` : `
-                        <div class="space-y-8">
-                            ${posts.map(post => `
-                                <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                                    <h3 class="mb-4" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                                        ${post.postTitle}
-                                    </h3>
-                                    <p class="mb-4" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.05}px; color: ${config.text_color}; opacity: 0.8; line-height: 1.8;">
-                                        ${post.postContent}
-                                    </p>
-                                    <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.5;">
-                                        ${new Date(post.createdAt).toLocaleString('zh-CN')}
-                                    </p>
-                                </div>
-                            `).join('')}
-                        </div>
-                    `}
+        <div>
+            ${customerAccount && memberDiscount > 0 ? `
+                <div class="mb-8 text-center p-6" style="background: linear-gradient(135deg, ${config.primary_action_color}22 0%, ${config.secondary_action_color}22 100%); border-radius: 16px; border: 2px solid ${config.primary_action_color};">
+                    <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.2}px; color: ${config.text_color}; font-weight: 600;">
+                        🎉 您的${getMembershipBadge(customerAccount.membershipLevel, config)}享受 <span style="color: ${config.primary_action_color}; font-size: ${config.font_size * 1.4}px;">${memberDiscount * 100}%折扣</span> 优惠！
+                    </p>
                 </div>
-            `;
+            ` : ''}
+            
+            <h2 class="mb-8 text-center" style="font-size: ${config.font_size * 2}px; font-weight: 700; background: linear-gradient(135deg, ${config.primary_action_color} 0%, ${config.secondary_action_color} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                我们的服务
+            </h2>
+            
+            ${services.length === 0 ? `
+                <div class="text-center py-16" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
+                    <div style="font-size: 60px;">💅</div>
+                    <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; opacity: 0.6;">
+                        精彩服务即将推出
+                    </p>
+                </div>
+            ` : `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    ${services.map(service => {
+                        const rating = getServiceRating(service.id);
+                        const ratingCount = getDataByType('rating').filter(r => r.serviceId === service.id).length;
+                        const originalPrice = service.price;
+                        const discountedPrice = memberDiscount > 0 ? (originalPrice * (1 - memberDiscount)).toFixed(2) : null;
+                        
+                        // 【核心逻辑】决定显示哪张图
+                        // 1. 如果有上传的图，就用上传的
+                        // 2. 如果没有，就用本地的 default_eye.png
+                        const displayImage = service.imageUrl ? service.imageUrl : './assets/default_eye.png';
+
+                        return `
+                            <div class="service-card group" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                                <div style="height: 240px; overflow: hidden; position: relative;">
+                                    <img src="${displayImage}" alt="${service.name}" 
+                                         onerror="this.src='./assets/default_eye.png'" 
+                                         style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s;">
+                                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 50%);"></div>
+                                </div>
+                                
+                                <div class="p-6 relative">
+                                    <h3 class="mb-2" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">
+                                        ${service.name}
+                                    </h3>
+                                    ${rating > 0 ? `
+                                        <div class="mb-3" style="font-size: ${config.font_size * 0.85}px;">
+                                            ${renderStars(rating)} <span style="font-family: Lato, sans-serif; color: ${config.text_color}; opacity: 0.6;">${rating} (${ratingCount})</span>
+                                        </div>
+                                    ` : ''}
+                                    <p class="mb-4 line-clamp-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.95}px; color: ${config.text_color}; opacity: 0.8; height: 3em;">
+                                        ${service.description}
+                                    </p>
+                                    <div class="flex items-center justify-between mb-6">
+                                        <p style="font-size: ${config.font_size * 1.5}px; color: ${config.primary_action_color}; font-weight: 700;">
+                                            ${discountedPrice ? `
+                                                <span style="text-decoration: line-through; opacity: 0.5; font-size: ${config.font_size * 1.1}px; color: ${config.text_color};">RM${originalPrice}</span>
+                                                <span style="margin-left: 8px;">RM${discountedPrice}</span>
+                                            ` : `RM${originalPrice}`}
+                                        </p>
+                                        ${service.duration > 0 ? `
+                                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; background: ${config.primary_action_color}11; color: ${config.primary_action_color}; padding: 4px 10px; border-radius: 20px;">
+                                                ⏱️ ${service.duration}分
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                    
+                                    <button class="bookServiceBtn btn-primary w-full py-3 rounded-lg shadow-md hover:shadow-lg transition-all" 
+                                        data-service-id="${service.id}" 
+                                        data-service-name="${service.name}" 
+                                        data-service-price="${discountedPrice || originalPrice}"
+                                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff;">
+                                        立即预约 ✨
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `}
+            
+            <h2 class="mt-16 mb-8 text-center" style="font-size: ${config.font_size * 2}px; font-weight: 700; background: linear-gradient(135deg, ${config.primary_action_color} 0%, ${config.secondary_action_color} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                ${config.posts_title}
+            </h2>
+            
+            ${posts.length === 0 ? `
+                <div class="text-center py-16" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
+                    <div style="font-size: 60px;">✨</div>
+                    <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; opacity: 0.6;">
+                        暂无动态分享
+                    </p>
+                </div>
+            ` : `
+                <div class="space-y-8">
+                    ${posts.map(post => `
+                        <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                            <h3 class="mb-4" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
+                                ${post.postTitle}
+                            </h3>
+                            <p class="mb-4" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.05}px; color: ${config.text_color}; opacity: 0.8; line-height: 1.8;">
+                                ${post.postContent}
+                            </p>
+                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.5;">
+                                ${new Date(post.createdAt).toLocaleString('zh-CN')}
+                            </p>
+                        </div>
+                    `).join('')}
+                </div>
+            `}
+        </div>
+    `;
 }
 
 function renderMyBookings(config, bookings) {
@@ -1842,85 +1857,98 @@ function showServiceModal(config) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     modal.innerHTML = `
-                <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                    <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                        添加新服务
-                    </h3>
-                    
-                    <form id="serviceForm">
-                        <div class="mb-4">
-                            <label for="serviceName" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                服务名称
-                            </label>
-                            <input type="text" id="serviceName" required
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label for="servicePrice" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                价格 (RM)
-                            </label>
-                            <input type="number" id="servicePrice" required min="0" step="0.01"
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label for="serviceDuration" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                时长 (分钟)
-                            </label>
-                            <input type="number" id="serviceDuration" min="0" placeholder="可选"
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-                        
-                        <div class="mb-6">
-                            <label for="serviceDescription" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                描述
-                            </label>
-                            <textarea id="serviceDescription" required rows="3"
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;"></textarea>
-                        </div>
-                        
-                        <div class="flex gap-3">
-                            <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                添加服务
-                            </button>
-                            <button type="button" id="cancelServiceBtn" class="flex-1 py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">
-                                取消
-                            </button>
-                        </div>
-                    </form>
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
+                添加新服务
+            </h3>
+            
+            <form id="serviceForm">
+                <div class="mb-4">
+                    <label for="serviceName" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                        服务名称
+                    </label>
+                    <input type="text" id="serviceName" required
+                        class="w-full px-4 py-3 rounded-lg border-2"
+                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
                 </div>
-            `;
+                
+                <div class="mb-4">
+                    <label for="servicePrice" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                        价格 (RM)
+                    </label>
+                    <input type="number" id="servicePrice" required min="0" step="0.01"
+                        class="w-full px-4 py-3 rounded-lg border-2"
+                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="serviceDuration" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                        时长 (分钟)
+                    </label>
+                    <input type="number" id="serviceDuration" min="0" placeholder="可选"
+                        class="w-full px-4 py-3 rounded-lg border-2"
+                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                </div>
 
+                <div class="mb-4">
+                    <label for="serviceImage" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                        图片链接 (可选)
+                    </label>
+                    <input type="text" id="serviceImage" placeholder="粘贴图片网址，留空则显示默认Logo"
+                        class="w-full px-4 py-3 rounded-lg border-2"
+                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                    <p style="font-size: ${config.font_size * 0.8}px; opacity: 0.6; margin-top: 4px;">
+                        💡 提示: 可以填网上的图片链接，或者填 "./assets/图片名.png"
+                    </p>
+                </div>
+                
+                <div class="mb-6">
+                    <label for="serviceDescription" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                        描述
+                    </label>
+                    <textarea id="serviceDescription" required rows="3"
+                        class="w-full px-4 py-3 rounded-lg border-2"
+                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;"></textarea>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+                        添加服务
+                    </button>
+                    <button type="button" id="cancelServiceBtn" class="flex-1 py-3 rounded-lg"
+                        style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">
+                        取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+    
     document.body.appendChild(modal);
-
+    
     document.getElementById('serviceForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-
+        
         const success = await createRecord({
             type: 'service',
             name: document.getElementById('serviceName').value,
             price: parseFloat(document.getElementById('servicePrice').value),
             duration: document.getElementById('serviceDuration').value ? parseInt(document.getElementById('serviceDuration').value) : 0,
             description: document.getElementById('serviceDescription').value,
-            imageUrl: ''
+            // 【新增】保存图片链接
+            imageUrl: document.getElementById('serviceImage').value
         });
-
+        
         if (success) {
             modal.remove();
         }
     });
-
+    
     document.getElementById('cancelServiceBtn').addEventListener('click', () => {
         modal.remove();
     });
-
+    
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             modal.remove();
