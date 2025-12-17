@@ -581,32 +581,34 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                             <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 24px; width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 2px solid ${config.primary_action_color};">
                                 <h3 class="mb-4" style="font-size: ${config.font_size * 1.3}px; font-weight: 700; color: ${config.primary_action_color};">菜单</h3>
                                 ${currentMode === 'owner' ? `
+                                    <!-- 业主菜单功能按钮 -->
                                     <button id="viewManage" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'manage' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                                        🛠️ 管理中心
+                                        🛠️ 管理中心 <!-- 管理服务、商品、动态 -->
                                     </button>
                                     <button id="viewStats" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'stats' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                                        📊 数据统计
+                                        📊 数据统计 <!-- 查看预约和销售统计 -->
                                     </button>
                                     <button id="viewCustomers" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'customers' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                                        👥 客户管理
+                                        👥 客户管理 <!-- 管理注册客户信息 -->
                                     </button>
                                     <button id="viewSettings" class="w-full text-left px-4 py-3 rounded-lg mb-4" style="font-family: Lato, sans-serif; background: ${currentView === 'settings' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                                        ⚙️ 系统设置
+                                        ⚙️ 系统设置 <!-- 配置折扣和积分规则 -->
                                     </button>
                                 ` : `
+                                    <!-- 客户菜单功能按钮 -->
                                     <button id="viewServices" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'services' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                                        💅 服务预约
+                                        💅 服务预约 <!-- 浏览和预约服务 -->
                                     </button>
                                     ${loggedInCustomerName ? `
                                         <button id="viewMyBookings" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'mybookings' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                                            📅 我的预约
+                                            📅 我的预约 <!-- 查看个人预约记录 -->
                                         </button>
                                         <button id="viewProfile" class="w-full text-left px-4 py-3 rounded-lg mb-4" style="font-family: Lato, sans-serif; background: ${currentView === 'profile' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                                            👤 我的账户
+                                            👤 我的账户 <!-- 查看和编辑账户信息 -->
                                         </button>
                                     ` : ''}
                                 `}
-                                <button id="logoutBtn" class="w-full px-4 py-3 rounded-lg" style="font-family: Lato, sans-serif; background: ${config.secondary_action_color}; color: #ffffff;">
+                                <button class="logout-btn w-full px-4 py-3 rounded-lg" style="font-family: Lato, sans-serif; background: ${config.secondary_action_color}; color: #ffffff;">
                                     ${loggedInCustomerName || currentMode === 'owner' ? '退出登录' : '返回首页'}
                                 </button>
                             </div>
@@ -637,7 +639,7 @@ function renderOwnerView(config, services, bookings, posts, customers) {
         return renderSettings(config);
     }
 
-    // 3. 筛选逻辑 - 预约 (Bookings)
+    // 3. 筛选逻辑 - 预约
     const filteredBookings = bookings.filter(b => {
         if (filterStatus === 'all') return true;
         return b.status === filterStatus;
@@ -648,13 +650,12 @@ function renderOwnerView(config, services, bookings, posts, customers) {
             b.serviceName.toLowerCase().includes(searchQuery.toLowerCase());
     });
     
-    // 4. 筛选逻辑 - 商品订单 (Orders) 【新增逻辑】
+    // 4. 筛选逻辑 - 订单
     const filteredOrders = orders.filter(o => {
         if (orderFilterStatus === 'all') return true;
         return o.status === orderFilterStatus;
     });
 
-    // 计算待处理数量 (用于标题显示)
     const pendingOrderCount = orders.filter(o => o.status === 'pending').length;
 
     return `
@@ -722,6 +723,7 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                             <option value="pending" ${orderFilterStatus === 'pending' ? 'selected' : ''}>待处理</option>
                             <option value="all" ${orderFilterStatus === 'all' ? 'selected' : ''}>全部订单</option>
                             <option value="completed" ${orderFilterStatus === 'completed' ? 'selected' : ''}>已完成</option>
+                            <option value="cancelled" ${orderFilterStatus === 'cancelled' ? 'selected' : ''}>已取消</option>
                         </select>
                     </div>
 
@@ -738,8 +740,12 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                                             <h3 style="font-weight: 700; font-size: 14px;">${order.customerName}</h3>
                                             <p style="font-size: 12px; opacity: 0.5;">${new Date(order.createdAt).toLocaleString('zh-CN')}</p>
                                         </div>
-                                        <span style="font-size: 12px; font-weight: bold; color: ${order.status === 'completed' ? '#10b981' : config.secondary_action_color};">
-                                            ${order.status === 'completed' ? '已完成' : '待处理'}
+                                        <span style="font-size: 12px; font-weight: bold; color: 
+                                            ${order.status === 'completed' ? '#10b981' : 
+                                              order.status === 'cancelled' ? '#ef4444' : 
+                                              config.secondary_action_color};">
+                                            ${order.status === 'completed' ? '已完成' : 
+                                              order.status === 'cancelled' ? '已取消' : '待处理'}
                                         </span>
                                     </div>
                                     
@@ -757,11 +763,18 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                                     </div>
 
                                     ${order.status === 'pending' ? `
-                                        <button class="completeOrderBtn w-full py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity" 
-                                            data-id="${order.id}"
-                                            style="background: #10b981; color: white;">
-                                            ✅ 发货/完成
-                                        </button>
+                                        <div class="flex gap-2">
+                                            <button class="completeOrderBtn flex-1 py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity" 
+                                                data-id="${order.id}"
+                                                style="background: #10b981; color: white;">
+                                                ✅ 发货/完成
+                                            </button>
+                                            <button class="cancelOrderBtn flex-1 py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity" 
+                                                data-id="${order.id}"
+                                                style="background: #ef4444; color: white;">
+                                                ❌ 取消订单
+                                            </button>
+                                        </div>
                                     ` : ''}
                                 </div>
                             `).join('')}
@@ -830,7 +843,13 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                 <div class="space-y-2">
                     ${posts.map(post => `
                         <div class="bg-white p-4 rounded-lg flex justify-between items-center shadow-sm">
-                            <span class="font-bold truncate w-2/3">${post.postTitle}</span>
+                            <div class="flex gap-3 items-center overflow-hidden">
+                                ${post.imageUrl ? `<img src="${post.imageUrl}" class="w-12 h-12 rounded object-cover bg-gray-100">` : '<div class="w-12 h-12 rounded bg-gray-100 flex items-center justify-center text-xs">无图</div>'}
+                                <div class="truncate">
+                                    <div class="font-bold truncate">${post.postTitle}</div>
+                                    <div class="text-xs text-gray-500 truncate w-48">${post.postContent}</div>
+                                </div>
+                            </div>
                             <button class="deletePostBtn text-red-500 text-sm" data-id="${post.id}">删除</button>
                         </div>
                     `).join('')}
@@ -1175,7 +1194,7 @@ function renderSettings(config) {
                         保存所有设置
                     </button>
                 </form>
-            </div>
+            </div>s
         </div>
     `;
 }
@@ -1261,11 +1280,9 @@ function renderCustomerView(config, services, bookings, posts) {
                         const displayImage = product.imageUrl || './assets/default_eye.png';
                         return `
                             <div class="product-card group" data-id="${product.id}" style="background: rgba(255, 255, 255, 0.95); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer;">
-                                <div style="height: 180px; overflow: hidden;">
-                                    <img src="${displayImage}" 
+                                <div style="height: 180px; overflow: hidden; background: #f9fafb;"> <img src="${displayImage}" 
                                          class="transition-transform duration-500 group-hover:scale-110"
-                                         style="width: 100%; height: 100%; object-fit: cover;" 
-                                         onerror="this.src='./assets/default_eye.png'">
+                                         style="width: 100%; height: 100%; object-fit: contain;"  onerror="this.src='./assets/default_eye.png'">
                                 </div>
                                 <div class="p-4 relative bg-white">
                                     <h3 class="mb-1" style="font-size: ${config.font_size * 1.1}px; font-weight: 700; color: ${config.text_color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -1298,17 +1315,37 @@ function renderCustomerView(config, services, bookings, posts) {
                 ${config.posts_title}
             </h2>
             
-            ${posts.length > 0 ? `
-                <div class="space-y-8 mb-24">
-                    ${posts.map(post => `
-                        <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                            <h3 class="mb-4" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">${post.postTitle}</h3>
-                            <p class="mb-4" style="opacity: 0.8; line-height: 1.8;">${post.postContent}</p>
-                            <p style="opacity: 0.5;">${new Date(post.createdAt).toLocaleString('zh-CN')}</p>
+            ${posts.length === 0 ? `
+                        <div class="text-center py-16" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
+                            <div style="font-size: 60px;">✨</div>
+                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; opacity: 0.6;">
+                                暂无动态分享
+                            </p>
                         </div>
-                    `).join('')}
-                </div>
-            ` : '<div class="text-center py-16"><p style="opacity: 0.6;">暂无动态</p></div>'}
+                    ` : `
+                        <div class="space-y-8">
+                            ${posts.map(post => `
+                                <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                    ${post.imageUrl ? `
+                                        <div style="width: 100%;">
+                                            <img src="${post.imageUrl}" style="width: 100%; height: auto; display: block;" onerror="this.style.display='none'">
+                                        </div>
+                                    ` : ''}
+                                    <div class="p-8">
+                                        <h3 class="mb-4" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
+                                            ${post.postTitle}
+                                        </h3>
+                                        <p class="mb-4" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.05}px; color: ${config.text_color}; opacity: 0.8; line-height: 1.8;">
+                                            ${post.postContent}
+                                        </p>
+                                        <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.5;">
+                                            ${new Date(post.createdAt).toLocaleString('zh-CN')}
+                                        </p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
             
             ${isShopEnabled ? `
                 <div id="cartFab" class="fixed bottom-8 right-6 z-40 cursor-pointer shadow-lg hover:scale-110 transition-transform"
@@ -1415,7 +1452,7 @@ function renderMyBookings(config, bookings) {
                 `}
             </div>
 
-            <button id="logoutBtn" class="w-full py-3 rounded-lg border-2 border-gray-300 text-gray-500 font-bold mb-8">
+            <button class="logout-btn w-full py-3 rounded-lg border-2 border-gray-300 text-gray-500 font-bold mb-8">
                 退出登录
             </button>
         </div>
@@ -1492,408 +1529,271 @@ function renderProfile(config, bookings) {
            `;
 }
 
-function attachEventListeners(config, services, bookings, posts, customers) {
-    // Menu buttons
+function attachEventListeners(config, services, bookings, posts) {
+    // === 0. 菜单控制 (补回) ===
+    
+    // 打开菜单 (Menu Button)
     document.getElementById('menuBtn')?.addEventListener('click', () => {
-        showMenu = !showMenu;
+        showMenu = true;
         renderApp();
     });
 
+    // 关闭菜单 (Overlay) - 你的代码优化版
     document.getElementById('menuOverlay')?.addEventListener('click', (e) => {
+        // 优化：只有点到半透明背景(ID匹配)时才关闭，点菜单里面的按钮不关闭
         if (e.target.id === 'menuOverlay') {
             showMenu = false;
             renderApp();
         }
     });
 
-    document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+    // === 1. 全局导航/登录 ===
+    document.querySelectorAll('.logout-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // 1. 清除登录缓存 (防止刷新自动登录)
+            localStorage.removeItem('gembrow_session');
+            
+            // 2. 重置状态
+            loggedInCustomerName = null;
+            currentMode = 'login'; // 回到登录页
+            showMenu = false;      // 关闭菜单
+            
+            // 3. 刷新
+            renderApp();
+            showToast('已退出登录');
+        });
+    });
 
-    // View switching
+    document.getElementById('myBookingsBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentView = 'mybookings';
+        renderApp();
+    });
+    
+    document.getElementById('homeBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentView = 'home';
+        renderApp();
+    });
+
+    document.getElementById('loginForm')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const phone = document.getElementById('phone').value;
+        if (username === ownerCredentials.username && phone === ownerCredentials.password) {
+            isOwner = true;
+            loggedInCustomerName = null;
+            currentView = 'manage'; 
+        } else {
+            isOwner = false;
+            loggedInCustomerName = username;
+            let customers = getDataByType('customer_account');
+            let customer = customers.find(c => c.username === username);
+            if (!customer) {
+                createRecord({ type: 'customer_account', username, phone, membershipLevel: 'bronze', points: 0 });
+            }
+            currentView = 'home';
+        }
+        renderApp();
+    });
+
+    document.getElementById('guestLoginBtn')?.addEventListener('click', () => {
+        isOwner = false;
+        loggedInCustomerName = null;
+        currentView = 'home';
+        renderApp();
+    });
+
+    // === 菜单导航按钮 ===
+    // 业主菜单按钮
     document.getElementById('viewManage')?.addEventListener('click', () => {
         currentView = 'manage';
         showMenu = false;
         renderApp();
     });
-
     document.getElementById('viewStats')?.addEventListener('click', () => {
         currentView = 'stats';
         showMenu = false;
         renderApp();
     });
-
     document.getElementById('viewCustomers')?.addEventListener('click', () => {
         currentView = 'customers';
         showMenu = false;
         renderApp();
     });
-
     document.getElementById('viewSettings')?.addEventListener('click', () => {
         currentView = 'settings';
         showMenu = false;
         renderApp();
     });
-
-    // Date filter buttons
-    document.getElementById('filterAll')?.addEventListener('click', () => {
-        window.statsDateFilter = 'all';
-        renderApp();
-    });
-
-    document.getElementById('filterToday')?.addEventListener('click', () => {
-        window.statsDateFilter = 'today';
-        renderApp();
-    });
-
-    document.getElementById('filterWeek')?.addEventListener('click', () => {
-        window.statsDateFilter = 'this_week';
-        renderApp();
-    });
-
-    document.getElementById('filterMonth')?.addEventListener('click', () => {
-        window.statsDateFilter = 'this_month';
-        renderApp();
-    });
-
-    document.getElementById('filterCustom')?.addEventListener('click', () => {
-        window.statsDateFilter = 'custom';
-        renderApp();
-    });
-
-    document.getElementById('applyCustomDate')?.addEventListener('click', () => {
-        window.statsStartDate = document.getElementById('startDate').value;
-        window.statsEndDate = document.getElementById('endDate').value;
-        renderApp();
-    });
-
-    // Export PDF button
-    document.getElementById('exportPdfBtn')?.addEventListener('click', () => {
-        exportStatsToPDF(config, services, bookings, customers);
-    });
-
+    // 客户菜单按钮
     document.getElementById('viewServices')?.addEventListener('click', () => {
         currentView = 'services';
         showMenu = false;
         renderApp();
     });
-
     document.getElementById('viewMyBookings')?.addEventListener('click', () => {
         currentView = 'mybookings';
         showMenu = false;
         renderApp();
     });
-
     document.getElementById('viewProfile')?.addEventListener('click', () => {
         currentView = 'profile';
         showMenu = false;
         renderApp();
     });
 
-    // Add customer
-    document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
-        showAddCustomerModal(config);
-    });
-
-    // Edit customer profile (owner)
-    document.querySelectorAll('.editCustomerBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const customer = customers.find(c => c.id === btn.dataset.customerId);
-            if (customer) {
-                showEditCustomerModal(config, customer);
-            }
-        });
-    });
-
-    // Delete customer
-    document.querySelectorAll('.deleteCustomerBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const customer = customers.find(c => c.id === btn.dataset.customerId);
-            if (customer) {
-                showConfirmModal(config, `确定要删除客户 "${customer.username}" 吗？此操作无法撤销。`, async () => {
-                    await deleteRecord(customer);
-                });
-            }
-        });
-    });
-
-    // Edit own profile (customer)
-    document.getElementById('editProfileBtn')?.addEventListener('click', () => {
-        const customerAccount = getDataByType('customer_account').find(acc => acc.username === loggedInCustomerName);
-        if (customerAccount) {
-            showEditProfileModal(config, customerAccount);
-        }
-    });
-
-    // Search and filter
-    document.getElementById('searchInput')?.addEventListener('input', (e) => {
-        searchQuery = e.target.value;
-        renderApp();
-    });
-
-    document.getElementById('filterSelect')?.addEventListener('change', (e) => {
-        filterStatus = e.target.value;
-        renderApp();
-    });
-
-    // Service management
+    // === 1. 全局导航/登录 ===
     document.getElementById('addServiceBtn')?.addEventListener('click', () => {
         showServiceModal(config);
     });
-
+    
     document.querySelectorAll('.editServiceBtn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const service = services.find(s => s.id === btn.dataset.id);
-            if (service) {
-                showEditServiceModal(config, service);
-            }
+            const s = services.find(i => i.id === btn.dataset.id);
+            if (s) showEditServiceModal(config, s);
         });
     });
 
     document.querySelectorAll('.deleteServiceBtn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const service = services.find(s => s.id === btn.dataset.id);
-            if (service) {
-                showConfirmModal(config, '确定要删除这个服务吗？', async () => {
-                    await deleteRecord(service);
-                });
-            }
+            const s = services.find(i => i.id === btn.dataset.id);
+            if (s) showConfirmModal(config, `确定删除服务 "${s.name}" 吗？`, async () => deleteRecord(s));
         });
     });
 
-    // Post management
+    // === 4. 商品管理 (✅ 你的按钮就是这里修好的) ===
+    document.getElementById('addProductBtn')?.addEventListener('click', () => {
+        // 确保 showProductModal 函数存在
+        if (typeof showProductModal === 'function') {
+            showProductModal(config);
+        } else {
+            console.error("❌ 错误：找不到 showProductModal 函数，请检查代码底部是否复制完整！");
+        }
+    });
+
+    document.querySelectorAll('.editProductBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const products = getDataByType('product');
+            const p = products.find(i => i.id === btn.dataset.id);
+            if (p) showEditProductModal(config, p);
+        });
+    });
+
+    document.querySelectorAll('.deleteProductBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const products = getDataByType('product');
+            const p = products.find(i => i.id === btn.dataset.id);
+            if (p) showConfirmModal(config, `确定下架商品 "${p.name}" 吗？`, async () => deleteRecord(p));
+        });
+    });
+
+    // === 5. 动态管理 ===
     document.getElementById('addPostBtn')?.addEventListener('click', () => {
-        showPostModal(config);
+        if (typeof showPostModal === 'function') showPostModal(config);
     });
 
     document.querySelectorAll('.deletePostBtn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const post = posts.find(p => p.id === btn.dataset.id);
-            if (post) {
-                showConfirmModal(config, '确定删除这条动态吗？', async () => {
-                    await deleteRecord(post);
-                });
-            }
+            const p = posts.find(i => i.id === btn.dataset.id);
+            if (p) showConfirmModal(config, "确定删除这条动态吗？", async () => deleteRecord(p));
         });
     });
 
-    // Booking management
-    document.querySelectorAll('.bookServiceBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            showBookingModal(config, btn.dataset.serviceId, btn.dataset.serviceName, btn.dataset.servicePrice);
-        });
-    });
-
-    // 找到 completeBookingBtn 的监听代码块
+    // === 6. 订单/预约处理 ===
     document.querySelectorAll('.completeBookingBtn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const booking = bookings.find(b => b.id === btn.dataset.id);
-            if (booking) {
-                await updateRecord(booking, { status: 'completed' });
-
-                // 给客户加积分
-                const customerAccount = getDataByType('customer_account').find(
-                    acc => acc.username === booking.customerName
-                );
-                if (customerAccount) {
-                    const pointsEarned = Math.floor(booking.totalAmount);
-
-                    // 【核心修改】
-                    // 1. 可用积分增加
-                    const newPoints = (customerAccount.points || 0) + pointsEarned;
-                    // 2. 历史总积分增加 (如果没有历史分，就以当前分作为基础)
-                    const currentLifetime = customerAccount.lifetime_points !== undefined ? customerAccount.lifetime_points : (customerAccount.points || 0);
-                    const newLifetimePoints = currentLifetime + pointsEarned;
-
-                    // 3. 根据历史总积分计算新等级
-                    const newLevel = calculateMembershipLevel(newPoints, newLifetimePoints);
-
-                    await updateRecord(customerAccount, {
-                        points: newPoints,
-                        lifetime_points: newLifetimePoints, // 保存历史总积分
-                        membershipLevel: newLevel
-                    });
-                }
-            }
-        });
-    });
-
-    // === 订单管理监听 ===
-    document.querySelectorAll('.completeOrderBtn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const orders = getDataByType('order');
-            const order = orders.find(o => o.id === btn.dataset.id);
-            if (order) {
-                await updateRecord(order, { status: 'completed' });
-            }
+        btn.addEventListener('click', () => {
+            const b = bookings.find(i => i.id === btn.dataset.id);
+            if (b) showConfirmModal(config, "确定完成此预约？", async () => updateRecord(b, { status: 'completed' }));
         });
     });
 
     document.querySelectorAll('.cancelBookingBtn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const booking = bookings.find(b => b.id === btn.dataset.id);
-            if (booking) {
-                showConfirmModal(config, '确定要取消这个预约吗？', async () => {
-                    await updateRecord(booking, { status: 'cancelled' });
-                });
-            }
-        });
-    });
-
-    // Rating buttons
-    document.querySelectorAll('.rateServiceBtn, .rateServiceBtnCustomer').forEach(btn => {
         btn.addEventListener('click', () => {
-            showRatingModal(config, btn.dataset.serviceId);
+            const b = bookings.find(i => i.id === btn.dataset.id);
+            if (b) showConfirmModal(config, "确定取消此预约？", async () => updateRecord(b, { status: 'cancelled' }));
         });
     });
 
-    // 新的：修改业主信息表单监听
-    document.getElementById('changeCredentialsForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const newUsername = document.getElementById('newUsername').value;
-        const newPassword = document.getElementById('newPassword').value;
-
-        // 准备要更新的数据
-        const updates = { username: newUsername };
-
-        // 只有当用户输入了新密码才更新密码
-        if (newPassword && newPassword.length > 0) {
-            if (newPassword.length < 4) {
-                showToast('密码至少需要4个字符');
-                return;
-            }
-            updates.password = newPassword;
-        }
-
-        // 更新数据库
-        const credRecord = getDataByType('owner_credentials')[0];
-        if (credRecord) {
-            await updateRecord(credRecord, updates);
-        } else {
-            await createRecord({
-                type: 'owner_credentials',
-                username: newUsername,
-                password: newPassword || ownerCredentials.password // 如果没改密码就用旧的
-            });
-        }
-
-        // 马上更新本地的变量，这样不用刷新页面就能生效
-        ownerCredentials.username = newUsername;
-        if (updates.password) ownerCredentials.password = updates.password;
-
-        showToast('登录信息已更新！下次请用新账号登录');
-        document.getElementById('changeCredentialsForm').reset();
-        renderApp(); // 重新渲染以显示新用户名
+    document.querySelectorAll('.completeOrderBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const orders = getDataByType('order');
+            const o = orders.find(i => i.id === btn.dataset.id);
+            if (o) showConfirmModal(config, "确认发货/完成订单？", async () => updateRecord(o, { status: 'completed' }));
+        });
     });
 
-    // Points rate form
-    document.getElementById('pointsRateForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const pointsToRmRate = parseInt(document.getElementById('pointsToRmRate').value);
-
-        if (pointsToRmRate < 1) {
-            showToast('兑换率必须大于0');
-            return;
-        }
-
-        const existingSettings = getDataByType('discount_settings')[0];
-        if (existingSettings) {
-            await updateRecord(existingSettings, { points_to_rm_rate: pointsToRmRate });
-        } else {
-            await createRecord({
-                type: 'discount_settings',
-                points_to_rm_rate: pointsToRmRate,
-                bronze_points: 0,
-                bronze_discount: 0,
-                silver_points: 100,
-                silver_discount: 5,
-                gold_points: 300,
-                gold_discount: 10,
-                platinum_points: 600,
-                platinum_discount: 15
-            });
-        }
+    document.querySelectorAll('.cancelOrderBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const orders = getDataByType('order');
+            const o = orders.find(i => i.id === btn.dataset.id);
+            if (o) showConfirmModal(config, "确定取消这个订单吗？", async () => updateRecord(o, { status: 'cancelled' }));
+        });
     });
 
- // 折扣设置表单提交
+    // === 7. 设置保存 ===
     document.getElementById('discountSettingsForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+        // 简单的保存逻辑，保持原有设置不丢失
+        const currentSettings = getDataByType('discount_settings')[0] || {};
         const newSettings = {
             type: 'discount_settings',
             enable_rewards: document.getElementById('enableRewards').checked,
-            // 【新增】保存购物车开关
             enable_shop: document.getElementById('enableShop').checked,
-            
-            // 保持原有数据
-            bronze_points: parseInt(document.getElementById('bronzePoints').value),
-            bronze_discount: parseInt(document.getElementById('bronzeDiscount').value),
-            silver_points: parseInt(document.getElementById('silverPoints').value),
-            silver_discount: parseInt(document.getElementById('silverDiscount').value),
-            gold_points: parseInt(document.getElementById('goldPoints').value),
-            gold_discount: parseInt(document.getElementById('goldDiscount').value),
-            platinum_points: parseInt(document.getElementById('platinumPoints').value),
-            platinum_discount: parseInt(document.getElementById('platinumDiscount').value),
-            points_to_rm_rate: parseInt(document.getElementById('pointsToRmRate').value)
+            // 保持原有的数值设置
+            bronze_points: parseInt(document.getElementById('bronzePoints').value) || 0,
+            bronze_discount: parseInt(document.getElementById('bronzeDiscount').value) || 0,
+            silver_points: parseInt(document.getElementById('silverPoints').value) || 100,
+            silver_discount: parseInt(document.getElementById('silverDiscount').value) || 5,
+            gold_points: parseInt(document.getElementById('goldPoints').value) || 300,
+            gold_discount: parseInt(document.getElementById('goldDiscount').value) || 10,
+            platinum_points: parseInt(document.getElementById('platinumPoints').value) || 600,
+            platinum_discount: parseInt(document.getElementById('platinumDiscount').value) || 15,
+            points_to_rm_rate: parseInt(document.getElementById('pointsToRmRate').value) || 10
         };
         
-        const existingSettings = getDataByType('discount_settings')[0];
-        if (existingSettings) {
-            await updateRecord(existingSettings, newSettings);
+        if (currentSettings.id) {
+            await updateRecord(currentSettings, newSettings);
         } else {
             await createRecord(newSettings);
         }
         renderApp();
-        showToast('设置已保存！');
+        showToast('设置已保存');
     });
 
-    // 2. 编辑商品按钮
-    document.querySelectorAll('.editProductBtn').forEach(btn => {
+    // === 8. 顾客功能 ===
+    document.querySelectorAll('.bookServiceBtn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const products = getDataByType('product');
-            const product = products.find(p => p.id === btn.dataset.id);
-            if (product) {
-                showEditProductModal(config, product);
+            if (!loggedInCustomerName) {
+                showToast('请先登录后预约');
+                return;
             }
+            showBookingModal(config, btn.dataset.serviceId, btn.dataset.serviceName, parseFloat(btn.dataset.servicePrice));
         });
     });
 
-    // === 顾客购物车监听 ===
-    
-    // 1. "加入购物车" 按钮
     document.querySelectorAll('.addToCartBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            addToCart(btn.dataset.id);
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if(typeof addToCart === 'function') addToCart(btn.dataset.id);
         });
     });
 
-    // 2. 悬浮购物车图标
     document.getElementById('cartFab')?.addEventListener('click', () => {
-        showCartModal(config);
+        if(typeof showCartModal === 'function') showCartModal(config);
     });
-
-    // 3. 删除商品按钮
-    document.querySelectorAll('.deleteProductBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const products = getDataByType('product');
-            const product = products.find(p => p.id === btn.dataset.id);
-            if (product) {
-                showConfirmModal(config, `确定要下架 "${product.name}" 吗？`, async () => {
-                    await deleteRecord(product);
-                });
-            }
-        });
-    });
-
-    // === 监听商品卡片点击 (查看详情) ===
+    
     document.querySelectorAll('.product-card').forEach(card => {
         card.addEventListener('click', () => {
             const products = getDataByType('product');
-            const product = products.find(p => p.id === card.dataset.id);
-            if (product) {
-                showProductDetailModal(config, product);
-            }
+            const p = products.find(i => i.id === card.dataset.id);
+            if (p && typeof showProductDetailModal === 'function') showProductDetailModal(config, p);
         });
+    });
+    
+    document.getElementById('searchInput')?.addEventListener('input', (e) => {
+        searchQuery = e.target.value;
+        renderApp();
     });
 }
 
@@ -3276,3 +3176,93 @@ function showProductDetailModal(config, product) {
         if (e.target === modal) modal.remove();
     });
 }
+
+// === 动态管理弹窗 (新增) ===
+function showPostModal(config) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
+            <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
+                发布新动态
+            </h3>
+            
+            <form id="postForm">
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-weight: 600;">标题</label>
+                    <input type="text" id="postTitle" required placeholder="例如：新春大促开启！"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block mb-2" style="font-weight: 600;">配图 (可选)</label>
+                    <input type="file" id="postFileInput" accept="image/*" style="display: none;">
+                    
+                    <div id="postDropZone" style="border: 2px dashed ${config.primary_action_color}; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: ${config.primary_action_color}11;">
+                        <p id="postUploadText" style="opacity: 0.7; pointer-events: none;">
+                            📸 点击上传海报/照片
+                        </p>
+                        <img id="postImagePreview" src="" style="max-height: 150px; display: none; margin: 0 auto; border-radius: 8px;">
+                    </div>
+                    <input type="text" id="postImage" placeholder="或粘贴图片链接..." 
+                        class="w-full px-4 py-2 mt-2 rounded-lg border-2 text-sm" style="border-color: ${config.text_color}33; color: ${config.text_color};">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block mb-2" style="font-weight: 600;">内容详情</label>
+                    <textarea id="postContent" required rows="4" placeholder="写点什么..."
+                        class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;"></textarea>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
+                        style="background: ${config.primary_action_color}; color: #ffffff;">发布</button>
+                    <button type="button" id="cancelPostBtn" class="flex-1 py-3 rounded-lg"
+                        style="border: 2px solid ${config.text_color};">取消</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 图片逻辑
+    const dropZone = document.getElementById('postDropZone');
+    const fileInput = document.getElementById('postFileInput');
+    const imageInput = document.getElementById('postImage');
+    const preview = document.getElementById('postImagePreview');
+    const text = document.getElementById('postUploadText');
+
+    const updatePreview = (src) => {
+        if (src) { preview.src = src; preview.style.display = 'block'; text.style.display = 'none'; }
+        else { preview.style.display = 'none'; text.style.display = 'block'; }
+    };
+    imageInput.addEventListener('input', () => updatePreview(imageInput.value));
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+             if (file.size > 307200) { alert('图片太大'); return; }
+             const reader = new FileReader();
+             reader.onload = (evt) => { imageInput.value = evt.target.result; updatePreview(evt.target.result); };
+             reader.readAsDataURL(file);
+        }
+    });
+
+    document.getElementById('postForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await createRecord({
+            type: 'post',
+            postTitle: document.getElementById('postTitle').value,
+            postContent: document.getElementById('postContent').value,
+            imageUrl: imageInput.value, // 保存图片
+            createdAt: new Date().toISOString()
+        });
+        modal.remove();
+    });
+    
+    document.getElementById('cancelPostBtn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+initApp();
