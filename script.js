@@ -562,6 +562,7 @@ function renderLoginPage(app, config) {
 }
 
 function renderMainApp(app, config, services, bookings, posts, customers) {
+    const currentYear = new Date().getFullYear();
     app.innerHTML = `
         <div class="min-h-full">
             <header style="background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; border-bottom: 3px solid ${config.primary_action_color};">
@@ -619,6 +620,20 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                     <main class="max-w-7xl mx-auto px-6 py-8">
                         ${currentMode === 'owner' ? renderOwnerView(config, services, bookings, posts, customers) : renderCustomerView(config, services, bookings, posts)}
                     </main>
+
+                    <footer class="mt-auto py-8 text-center border-t border-gray-200" style="background: #fafafa; color: ${config.text_color};">
+                       <div class="max-w-7xl mx-auto px-6">
+                           <div class="flex flex-wrap justify-center gap-6 mb-4 text-sm font-medium opacity-70">
+                               <button class="footer-link hover:underline" data-type="terms">Terms & Conditions</button>
+                               <button class="footer-link hover:underline" data-type="privacy">Privacy Policy</button>
+                               <button class="footer-link hover:underline" data-type="cookies">Cookies Notice</button>
+                           </div>
+                           <p class="text-xs opacity-50">
+                               Copyright © ${currentYear} ${config.app_title}. All rights reserved.<br>
+                               Designed for Beauty & Wellness.
+                           </p>
+                       </div>
+                   </footer>
                 </div>
             `;
 
@@ -1873,6 +1888,13 @@ function attachEventListeners(config, services, bookings, posts) {
         searchQuery = e.target.value;
         renderApp();
     });
+
+    // === 11. 底部条款监听 (新增) ===
+    document.querySelectorAll('.footer-link').forEach(btn => {
+        btn.addEventListener('click', () => {
+            showPolicyModal(config, btn.dataset.type);
+        });
+    });
 }
 
 // Modal functions
@@ -2721,6 +2743,72 @@ function showConfirmModal(config, message, onConfirm) {
             modal.remove();
         }
     });
+}
+
+// === 条款弹窗 (Terms / Privacy / Cookies) ===
+function showPolicyModal(config, type) {
+    const policies = {
+        terms: {
+            title: "Terms & Conditions (服务条款)",
+            content: `
+                <h4 class="font-bold mb-2">1. 预约规则</h4>
+                <p class="mb-4">所有服务需提前预约。若需取消或改期，请至少提前 24 小时通知我们。迟到超过 15 分钟可能导致预约被取消。</p>
+                <h4 class="font-bold mb-2">2. 支付与定金</h4>
+                <p class="mb-4">我们接受现金、银行转账及电子钱包支付。部分服务可能需要预付定金，定金不可退还。</p>
+                <h4 class="font-bold mb-2">3. 服务质量保障</h4>
+                <p class="mb-4">若您对服务有任何不满，请在服务完成后 3 天内联系我们，我们将尽力为您解决。</p>
+            `
+        },
+        privacy: {
+            title: "Privacy Policy (隐私政策)",
+            content: `
+                <h4 class="font-bold mb-2">1. 数据收集</h4>
+                <p class="mb-4">我们收集您的姓名、电话和邮箱仅用于预约确认和会员积分记录，绝不会出售给第三方。</p>
+                <h4 class="font-bold mb-2">2. 数据安全</h4>
+                <p class="mb-4">我们会采取合理的安全措施保护您的个人信息安全。</p>
+            `
+        },
+        cookies: {
+            title: "Cookies Notice (Cookies 声明)",
+            content: `
+                <p class="mb-4">本网站使用本地存储 (Local Storage) 来保存您的登录状态和购物车信息，以提供更流畅的用户体验。继续使用本网站即表示您同意我们使用这些技术。</p>
+            `
+        }
+    };
+
+    const policy = policies[type];
+    if (!policy) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 600px; width: 100%; border: 2px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 80vh; overflow-y: auto;">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h3 style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">
+                    ${policy.title}
+                </h3>
+                <button id="closePolicyBtn" style="font-size: 24px; color: ${config.text_color}; background: none; border: none; cursor: pointer;">✕</button>
+            </div>
+            
+            <div class="text-sm leading-relaxed opacity-80" style="color: ${config.text_color}; font-family: sans-serif;">
+                ${policy.content}
+            </div>
+            
+            <div class="mt-8 text-center">
+                <button id="okPolicyBtn" class="px-8 py-2 rounded-lg"
+                    style="background: ${config.primary_action_color}; color: #ffffff; font-weight: bold;">
+                    了解了
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const close = () => modal.remove();
+    document.getElementById('closePolicyBtn').addEventListener('click', close);
+    document.getElementById('okPolicyBtn').addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
 }
 
 // Config change handler
