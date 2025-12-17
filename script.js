@@ -84,10 +84,21 @@ window.elementSdk = {
         secondary_action_color: '#f472b6',
         font_family: 'Playfair Display',
         font_size: 16,
-
+        app_title: 'Gem Brow beauty',
         posts_title: '店铺动态'
     },
-    init: async (options) => { console.log('SDK Ready'); if (options.onConfigChange) options.onConfigChange(window.elementSdk.config); }
+    init: async (options) => { 
+        console.log('SDK Ready'); 
+        // 合并默认配置
+        if (options && options.defaultConfig) {
+            Object.assign(window.elementSdk.config, options.defaultConfig);
+        }
+        if (options.onConfigChange) options.onConfigChange(window.elementSdk.config); 
+    },
+    setConfig: (newConfig) => {
+        Object.assign(window.elementSdk.config, newConfig);
+        renderApp();
+    }
 };
 
 const DB_KEY = 'gembrow_data';
