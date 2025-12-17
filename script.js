@@ -1688,6 +1688,30 @@ function attachEventListeners(config, services, bookings, posts) {
         });
     });
 
+    // === 3.5 客户管理 ===
+    // 添加客户按钮
+    document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
+        showAddCustomerModal(config);
+    });
+
+    // 编辑客户按钮
+    document.querySelectorAll('.editCustomerBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const customers = getDataByType('customer_account');
+            const customer = customers.find(c => c.id === btn.dataset.customerId);
+            if (customer) showEditCustomerModal(config, customer);
+        });
+    });
+
+    // 删除客户按钮
+    document.querySelectorAll('.deleteCustomerBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const customers = getDataByType('customer_account');
+            const customer = customers.find(c => c.id === btn.dataset.customerId);
+            if (customer) showConfirmModal(config, `确定删除客户 "${customer.username}" 及其所有数据吗？`, async () => deleteRecord(customer));
+        });
+    });
+
     // === 5. 动态管理 ===
     document.getElementById('addPostBtn')?.addEventListener('click', () => {
         if (typeof showPostModal === 'function') showPostModal(config);
