@@ -388,7 +388,7 @@ async function handleRegister(username, password, email) {
 }
 
 function handleLogout() {
-    // 【新增】清除登录记录
+    // 清除登录记录
     localStorage.removeItem('gembrow_session');
 
     currentMode = 'login';
