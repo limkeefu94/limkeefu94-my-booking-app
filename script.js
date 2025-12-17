@@ -3,44 +3,56 @@
 // 1. 模拟配置 SDK
 window.elementSdk = {
     config: {
-        // 这里填你原来的默认配置
         background_color: '#FFF9F0',
-
         surface_color: '#ffffff',
         text_color: '#4a1e3a',
-
-        // 【这里必须改】按钮颜色改这里！
         primary_action_color: '#B48E66',
-
         secondary_action_color: '#f472b6',
         font_family: 'Playfair Display',
         font_size: 16,
-        app_title: 'Gem Brow 美睫美眉',
+        
+        // 👇【关键修复】这里必须加上 app_title，否则 Footer 会显示 undefined
+        app_title: 'Gem Brow beauty', 
+        
         posts_title: '店铺动态'
     },
-    init: async () => console.log('Simulated Element SDK Ready')
+    init: async (options) => {
+        console.log('SDK Ready');
+        // 模拟初始化时合并配置，防止 undefined
+        if (options.defaultConfig) {
+            // 简单的合并逻辑
+            for (let key in options.defaultConfig) {
+                if (!window.elementSdk.config[key]) {
+                    window.elementSdk.config[key] = options.defaultConfig[key];
+                }
+            }
+        }
+    },
+    setConfig: (newConfig) => {
+        Object.assign(window.elementSdk.config, newConfig);
+        renderApp();
+    }
 };
 
 // 2. 模拟数据 SDK (使用 LocalStorage)
-const STORAGE_KEY = 'gem_brow_data';
+const STORAGE_KEY = 'gem_brow_data'; // 统一使用一个 Key
 function loadData() {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 }
 function saveData(data) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    // 通知 App 数据变了
     if (window.dataHandler) window.dataHandler.onDataChanged(data);
 }
 
 window.dataSdk = {
     init: async (handler) => {
-        window.dataHandler = handler; // 记住那个处理函数
-        setTimeout(() => handler.onDataChanged(loadData()), 100); // 假装从服务器加载
+        window.dataHandler = handler;
+        setTimeout(() => handler.onDataChanged(loadData()), 100);
         return { isOk: true };
     },
     create: async (record) => {
         const data = loadData();
-        data.push(record);
+        data.push({ ...record, id: Date.now().toString() });
         saveData(data);
         return { isOk: true };
     },
@@ -48,7 +60,7 @@ window.dataSdk = {
         let data = loadData();
         const index = data.findIndex(item => item.id === record.id);
         if (index !== -1) {
-            data[index] = { ...data[index], ...record }; // 合并更新
+            data[index] = { ...data[index], ...record };
             saveData(data);
             return { isOk: true };
         }
@@ -114,7 +126,7 @@ const defaultConfig = {
     secondary_action_color: '#f472b6',
     font_family: 'Playfair Display',
     font_size: 16,
-    app_title: 'Gem Brow 美睫美眉',
+    app_title: 'Gem Brow beauty',
     posts_title: '店铺动态'
 };
 
