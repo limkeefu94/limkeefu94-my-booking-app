@@ -1698,8 +1698,9 @@ function attachEventListeners(config, services, bookings, posts) {
     document.querySelectorAll('.editCustomerBtn').forEach(btn => {
         btn.addEventListener('click', () => {
             const customers = getDataByType('customer_account');
-            const customer = customers.find(c => c.id === btn.dataset.customerId);
-            if (customer) showEditCustomerModal(config, customer);
+            // 注意：这里用的是 dataset.customerId，因为 HTML 里写的是 data-customer-id
+            const c = customers.find(i => i.id === btn.dataset.customerId);
+            if (c) showEditCustomerModal(config, c);
         });
     });
 
