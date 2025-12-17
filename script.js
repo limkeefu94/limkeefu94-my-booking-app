@@ -743,7 +743,13 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                                                     <button class="completeBookingBtn" data-id="${booking.id}" style="background: #10b981; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px;">完成</button>
                                                     <button class="cancelBookingBtn" data-id="${booking.id}" style="background: #ef4444; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px;">取消</button>
                                                 </div>
-                                            ` : ''}
+                                            ` : `
+                                                <div class="mt-2">
+                                                    <button class="revertBookingBtn" data-id="${booking.id}" style="border: 1px solid #9ca3af; color: #4b5563; padding: 4px 8px; border-radius: 6px; font-size: 12px; background: white;">
+                                                        ↩️ 恢复待办
+                                                    </button>
+                                                </div>
+                                            `}
                                         </div>
                                     </div>
                                 </div>
@@ -904,17 +910,20 @@ function renderStats(config, services, bookings, customers, orders) {
     const safeBookings = bookings || [];
     
     // 2. 日期过滤辅助函数
-    const isWithinDateRange = (dateString) => {
-        if (!dateString) return false;
-        // 把日期只取 YYYY-MM-DD 部分进行比较
-        const date = new Date(dateString).toISOString().split('T')[0];
-        return date >= statsStartDate && date <= statsEndDate;
+    const isWithinDateRange = (dateStr) => {
+        if (!dateStr) return false;
+        const d = new Date(dateStr).toISOString().split('T')[0];
+        return d >= statsStartDate && d <= statsEndDate;
     };
 
-    // 3. 过滤数据
-    const filteredBookings = safeBookings.filter(b => b.status === 'completed' && isWithinDateRange(b.appointmentDate));
+    // 3. 过滤数据 (👇 【修改】优先使用 completedAt 实际完成时间)
+    const filteredBookings = safeBookings.filter(b => {
+        // 如果有实际完成时间(completedAt)，就用它；否则用预约时间(appointmentDate)
+        const effectiveDate = b.completedAt || b.appointmentDate;
+        return b.status === 'completed' && isWithinDateRange(effectiveDate);
+    });
     const filteredOrders = safeOrders.filter(o => o.status === 'completed' && isWithinDateRange(o.createdAt));
-
+    
     // 4. 计算收入
     const serviceRevenue = filteredBookings.reduce((sum, b) => sum + (parseFloat(b.totalAmount) || 0), 0);
     const productRevenue = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0), 0);
@@ -1809,9 +1818,19 @@ function attachEventListeners(config, services, bookings, posts) {
     document.querySelectorAll('.completeBookingBtn').forEach(btn => {
         btn.addEventListener('click', () => {
             const b = bookings.find(i => i.id === btn.dataset.id);
-            if (b) showConfirmModal(config, "确定完成此预约？", async () => updateRecord(b, { status: 'completed' }));
+            // 👇 【修改】这里加了 completedAt: new Date().toISOString()
+            if (b) showConfirmModal(config, "确定完成此预约？", async () => updateRecord(b, { status: 'completed', completedAt: new Date().toISOString() }));
         });
     });
+
+    // 👇 【新增】恢复待办监听器
+    document.querySelectorAll('.revertBookingBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const b = bookings.find(i => i.id === btn.dataset.id);
+            // 恢复成 pending，并把完成时间清空
+            if (b) showConfirmModal(config, "确定要撤销状态，变回【待确认】吗？", async () => updateRecord(b, { status: 'pending', completedAt: null }));
+        });
+    });;
 
     document.querySelectorAll('.cancelBookingBtn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -2299,7 +2318,7 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
                        <label for="appointmentDate" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
                           预约日期
                       </label>
-                      <input type="date" id="appointmentDate" required
+                      <input type="date" id="appointmentDate" required min="${new Date().toISOString().split('T')[0]}"
                         class="w-full px-4 py-3 rounded-lg border-2"
                         style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
                    </div>
