@@ -1239,8 +1239,11 @@ function renderCustomerView(config, services, bookings, posts) {
             ` : `
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
                     ${services.map(service => {
+                        // 1. 实时计算该服务的评分
                         const rating = getServiceRating(service.id);
+                        // 2. 计算有多少人评价过
                         const ratingCount = getDataByType('rating').filter(r => r.serviceId === service.id).length;
+                        
                         const originalPrice = service.price;
                         const discountedPrice = memberDiscount > 0 ? (originalPrice * (1 - memberDiscount)).toFixed(2) : null;
                         const displayImage = service.imageUrl || './assets/default_eye.png';
@@ -1254,9 +1257,20 @@ function renderCustomerView(config, services, bookings, posts) {
                                          onerror="this.src='./assets/default_eye.png'">
                                 </div>
                                 <div class="p-6 relative bg-white">
-                                    <h3 class="mb-2" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">${service.name}</h3>
-                                    ${rating > 0 ? `<div class="mb-3">${renderStars(rating)} <span style="opacity: 0.6;">(${ratingCount})</span></div>` : ''}
+                                    <div class="flex justify-between items-start mb-2">
+                                        <h3 style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">
+                                            ${service.name}
+                                        </h3>
+                                        ${rating > 0 ? `
+                                            <div class="flex items-center bg-yellow-50 px-2 py-1 rounded-lg">
+                                                <span class="text-yellow-500 font-bold mr-1">★ ${rating}</span>
+                                                <span class="text-xs text-gray-400">(${ratingCount})</span>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    
                                     <p class="mb-4 line-clamp-2" style="opacity: 0.8; height: 3em;">${service.description}</p>
+                                    
                                     <div class="flex items-center justify-between mb-6">
                                         <p style="font-size: ${config.font_size * 1.5}px; color: ${config.primary_action_color}; font-weight: 700;">
                                             ${discountedPrice ? `<span style="text-decoration: line-through; opacity: 0.5; font-size: ${config.font_size}px; color: ${config.text_color};">RM${originalPrice}</span> RM${discountedPrice}` : `RM${originalPrice}`}
@@ -1387,7 +1401,11 @@ function renderMyBookings(config, bookings) {
                     <p class="text-center text-gray-400 py-4">您还没有预约过服务哦</p>
                 ` : `
                     <div class="space-y-4">
-                        ${sortedBookings.map(booking => `
+                        ${sortedBookings.map(booking => {
+                            // 检查是否已评价
+                            const hasRated = getDataByType('rating').some(r => r.bookingId === booking.id);
+                            
+                            return `
                             <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                                 <div class="flex justify-between items-start mb-2">
                                     <h4 class="font-bold text-lg" style="color: ${config.primary_action_color};">${booking.serviceName}</h4>
@@ -1407,8 +1425,21 @@ function renderMyBookings(config, bookings) {
                                         取消预约
                                     </button>
                                 ` : ''}
+
+                                ${booking.status === 'completed' && !hasRated ? `
+                                    <button class="rateBookingBtn w-full mt-3 py-2 rounded-lg text-sm font-bold text-white shadow-sm hover:opacity-90" 
+                                        data-id="${booking.id}"
+                                        style="background: ${config.secondary_action_color};">
+                                        ⭐ 去评价
+                                    </button>
+                                ` : ''}
+                                
+                                ${booking.status === 'completed' && hasRated ? `
+                                    <div class="mt-3 text-center text-xs text-gray-400">已评价 ✅</div>
+                                ` : ''}
                             </div>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </div>
                 `}
             </div>
@@ -1545,6 +1576,17 @@ function attachEventListeners(config, services, bookings, posts) {
             showMenu = false;
             renderApp();
         }
+    });
+
+    // === 评价按钮监听 (新增) ===
+    document.querySelectorAll('.rateServiceBtn, .rateServiceBtnCustomer').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const bookings = getDataByType('booking');
+            const booking = bookings.find(b => b.id === btn.dataset.bookingId);
+            if (booking) {
+                showRatingModal(config, booking);
+            }
+        });
     });
 
     // === 1. 全局导航/登录 ===
@@ -1753,6 +1795,17 @@ function attachEventListeners(config, services, bookings, posts) {
             const orders = getDataByType('order');
             const o = orders.find(i => i.id === btn.dataset.id);
             if (o) showConfirmModal(config, "确定取消这个订单吗？", async () => updateRecord(o, { status: 'cancelled' }));
+        });
+    });
+
+    // === 评价按钮监听 (新增) ===
+    document.querySelectorAll('.rateBookingBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const bookings = getDataByType('booking'); // 重新获取最新数据
+            const booking = bookings.find(b => b.id === btn.dataset.id);
+            if (booking) {
+                showRatingModal(config, booking);
+            }
         });
     });
 
@@ -2359,119 +2412,119 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
     });
 }
 
-function showRatingModal(config, serviceId) {
+// === 评价弹窗 ===
+function showRatingModal(config, booking) {
+    // 1. 【核心修复】强制重新获取一次最新数据，防止缓存导致能重复评价
+    const allRatings = getDataByType('rating'); // 这里的 getDataByType 会读取最新的全局变量
+    const hasRated = allRatings.some(r => r.bookingId === booking.id);
+    
+    if (hasRated) {
+        showToast('您已经评价过这次服务了，谢谢！');
+        // 强制刷新一下页面，把那个按钮藏起来
+        renderApp(); 
+        return;
+    }
+
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     modal.innerHTML = `
-                <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 400px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                    <h3 class="mb-6 text-center" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                        服务评价
-                    </h3>
-                    
-                    <form id="ratingForm">
-                        <div class="mb-6 text-center">
-                            <p class="mb-4" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; color: ${config.text_color};">
-                                请为此次服务打分
-                            </p>
-                            <div id="starRating" class="flex justify-center gap-2" style="font-size: 48px; cursor: pointer;">
-                                <span class="star" data-rating="1">☆</span>
-                                <span class="star" data-rating="2">☆</span>
-                                <span class="star" data-rating="3">☆</span>
-                                <span class="star" data-rating="4">☆</span>
-                                <span class="star" data-rating="5">☆</span>
-                            </div>
-                            <input type="hidden" id="ratingValue" required>
-                        </div>
-                        
-                        <div class="flex gap-3">
-                            <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                提交评价
-                            </button>
-                            <button type="button" id="cancelRatingBtn" class="flex-1 py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">
-                                取消
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            `;
-
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 400px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;">
+            <h3 class="mb-2" style="font-size: ${config.font_size * 1.5}px; font-weight: 700; color: ${config.primary_action_color};">
+                服务评价
+            </h3>
+            <p class="mb-6 opacity-70 text-sm">为 ${booking.serviceName} 打个分吧</p>
+            
+            <div class="flex justify-center gap-2 mb-6" id="starContainer">
+                ${[1, 2, 3, 4, 5].map(i => `
+                    <span class="star-btn cursor-pointer transition-transform hover:scale-110" data-value="${i}" style="font-size: 40px; color: #e5e7eb; transition: color 0.2s;">★</span>
+                `).join('')}
+            </div>
+            
+            <div class="mb-6 text-left">
+                <label class="block mb-2 text-sm font-bold text-gray-600">写点评语 (可选)</label>
+                <textarea id="ratingComment" rows="3" placeholder="技术怎么样？环境舒服吗？..." 
+                    class="w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:border-pink-400" 
+                    style="border-color: ${config.text_color}33; resize: none;"></textarea>
+            </div>
+            
+            <div class="flex gap-3">
+                <button id="submitRatingBtn" class="flex-1 btn-primary py-3 rounded-lg font-bold shadow-md"
+                    style="background: ${config.primary_action_color}; color: #ffffff;">提交评价</button>
+                <button id="cancelRatingBtn" class="flex-1 py-3 rounded-lg font-bold"
+                    style="border: 2px solid ${config.text_color}; background: transparent;">取消</button>
+            </div>
+        </div>
+    `;
+    
     document.body.appendChild(modal);
-
-    let selectedRating = 0;
-    const stars = modal.querySelectorAll('.star');
-
+    
+    // 星星交互逻辑
+    let currentRating = 0;
+    const stars = modal.querySelectorAll('.star-btn');
+    
     stars.forEach(star => {
-        star.addEventListener('click', () => {
-            selectedRating = parseInt(star.dataset.rating);
-            document.getElementById('ratingValue').value = selectedRating;
-
-            stars.forEach((s, index) => {
-                if (index < selectedRating) {
-                    s.textContent = '★';
-                    s.style.color = '#fbbf24';
-                } else {
-                    s.textContent = '☆';
-                    s.style.color = '#d1d5db';
-                }
-            });
-        });
-
+        // 鼠标移入预览
         star.addEventListener('mouseenter', () => {
-            const hoverRating = parseInt(star.dataset.rating);
-            stars.forEach((s, index) => {
-                if (index < hoverRating) {
-                    s.textContent = '★';
-                    s.style.color = '#fbbf24';
-                } else {
-                    s.textContent = '☆';
-                    s.style.color = '#d1d5db';
-                }
+            const val = parseInt(star.dataset.value);
+            stars.forEach((s, i) => {
+                s.style.color = i < val ? '#fbbf24' : '#e5e7eb'; // 金色 vs 灰色
             });
         });
-
+        
+        // 鼠标移出恢复 (如果没有点击确认，就恢复原样)
         star.addEventListener('mouseleave', () => {
-            stars.forEach((s, index) => {
-                if (index < selectedRating) {
-                    s.textContent = '★';
-                    s.style.color = '#fbbf24';
-                } else {
-                    s.textContent = '☆';
-                    s.style.color = '#d1d5db';
-                }
+            stars.forEach((s, i) => {
+                s.style.color = i < currentRating ? '#fbbf24' : '#e5e7eb';
+            });
+        });
+        
+        // 点击确认
+        star.addEventListener('click', () => {
+            currentRating = parseInt(star.dataset.value);
+            // 点击后加个小动画
+            star.style.transform = 'scale(1.4)';
+            setTimeout(() => star.style.transform = 'scale(1)', 200);
+            
+            stars.forEach((s, i) => {
+                s.style.color = i < currentRating ? '#fbbf24' : '#e5e7eb';
             });
         });
     });
 
-    document.getElementById('ratingForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        if (selectedRating === 0) {
-            showToast('请选择评分');
+    // 提交逻辑
+    document.getElementById('submitRatingBtn').addEventListener('click', async () => {
+        if (currentRating === 0) {
+            showToast('请先点击星星打分哦！⭐');
             return;
         }
-
+        
+        const comment = document.getElementById('ratingComment').value; // 获取评语
+        
         const success = await createRecord({
             type: 'rating',
-            serviceId: serviceId,
-            rating: selectedRating,
-            customerName: loggedInCustomerName || 'Anonymous'
+            serviceId: booking.serviceId,
+            bookingId: booking.id, // 关键：绑定订单ID，防止重复
+            customerName: booking.customerName,
+            rating: currentRating,
+            comment: comment,
+            createdAt: new Date().toISOString()
         });
-
+        
         if (success) {
+            showToast('评价成功！感谢您的支持 🌹');
             modal.remove();
+            // 强制刷新页面，让“去评价”按钮消失，并更新首页分数
+            setTimeout(() => {
+                renderApp();
+            }, 500); // 稍微等半秒让数据存好
         }
     });
-
-    document.getElementById('cancelRatingBtn').addEventListener('click', () => {
-        modal.remove();
-    });
-
+    
+    document.getElementById('cancelRatingBtn').addEventListener('click', () => modal.remove());
+    
+    // 点击背景关闭
     modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.remove();
-        }
+        if (e.target === modal) modal.remove();
     });
 }
 
