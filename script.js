@@ -916,10 +916,11 @@ function renderStats(config, services, bookings, customers, orders) {
         return d >= statsStartDate && d <= statsEndDate;
     };
 
-    // 3. 过滤数据 (👇 【修改】优先使用 completedAt 实际完成时间)
+    // 3. 过滤数据 (优先使用 completedAt 实际完成时间)
     const filteredBookings = safeBookings.filter(b => {
-        // 如果有实际完成时间(completedAt)，就用它；否则用预约时间(appointmentDate)
+        // 如果有实际完成时间，就用它；否则用预约时间作为保底
         const effectiveDate = b.completedAt || b.appointmentDate;
+        // 确保 effectiveDate 也是按照 YYYY-MM-DD 格式比较
         return b.status === 'completed' && isWithinDateRange(effectiveDate);
     });
     const filteredOrders = safeOrders.filter(o => o.status === 'completed' && isWithinDateRange(o.createdAt));
@@ -1815,23 +1816,18 @@ function attachEventListeners(config, services, bookings, posts) {
     });
 
     // === 6. 订单/预约处理 ===
+    
+    // 完成预约 (改为弹出日期选择框)
     document.querySelectorAll('.completeBookingBtn').forEach(btn => {
         btn.addEventListener('click', () => {
             const b = bookings.find(i => i.id === btn.dataset.id);
-            // 👇 【修改】这里加了 completedAt: new Date().toISOString()
-            if (b) showConfirmModal(config, "确定完成此预约？", async () => updateRecord(b, { status: 'completed', completedAt: new Date().toISOString() }));
+            if (b) {
+                showCompleteBookingModal(config, b);
+            }
         });
     });
 
-    // 👇 【新增】恢复待办监听器
-    document.querySelectorAll('.revertBookingBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const b = bookings.find(i => i.id === btn.dataset.id);
-            // 恢复成 pending，并把完成时间清空
-            if (b) showConfirmModal(config, "确定要撤销状态，变回【待确认】吗？", async () => updateRecord(b, { status: 'pending', completedAt: null }));
-        });
-    });;
-
+    // 取消预约
     document.querySelectorAll('.cancelBookingBtn').forEach(btn => {
         btn.addEventListener('click', () => {
             const b = bookings.find(i => i.id === btn.dataset.id);
@@ -1839,6 +1835,15 @@ function attachEventListeners(config, services, bookings, posts) {
         });
     });
 
+    // ↩️ 恢复待办 (后悔药功能)
+    document.querySelectorAll('.revertBookingBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const b = bookings.find(i => i.id === btn.dataset.id);
+            if (b) showConfirmModal(config, "确定要撤销完成状态，变回【待确认】吗？", async () => updateRecord(b, { status: 'pending', completedAt: null }));
+        });
+    });
+
+    // 商品订单处理 (保持不变)
     document.querySelectorAll('.completeOrderBtn').forEach(btn => {
         btn.addEventListener('click', () => {
             const orders = getDataByType('order');
@@ -2785,6 +2790,68 @@ function showConfirmModal(config, message, onConfirm) {
             modal.remove();
         }
     });
+}
+
+// === 确认完成订单弹窗 (新增：可选实际日期) ===
+function showCompleteBookingModal(config, booking) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    
+    // 默认时间设为当前时间
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const timeStr = now.toTimeString().slice(0, 5); // HH:mm
+
+    modal.innerHTML = `
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 400px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <h3 class="mb-4 text-center" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">
+                ✅ 确认完成服务
+            </h3>
+            <p class="mb-6 text-center text-sm opacity-70">请确认实际完成服务的日期和时间，<br>这将用于统计数据。</p>
+            
+            <form id="completeBookingForm">
+                <div class="mb-4">
+                    <label class="block mb-2 font-bold text-sm">实际完成日期</label>
+                    <input type="date" id="actualDate" required value="${todayStr}"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block mb-2 font-bold text-sm">实际完成时间</label>
+                    <input type="time" id="actualTime" required value="${timeStr}"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
+                </div>
+                
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg font-bold"
+                        style="background: #10b981; color: #ffffff;">确认完成</button>
+                    <button type="button" id="cancelCompleteBtn" class="flex-1 py-3 rounded-lg font-bold"
+                        style="border: 2px solid ${config.text_color}; background: transparent;">取消</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.getElementById('completeBookingForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const date = document.getElementById('actualDate').value;
+        const time = document.getElementById('actualTime').value;
+        
+        // 组合成完整的 ISO 时间字符串
+        const completedAt = new Date(`${date}T${time}`).toISOString();
+        
+        await updateRecord(booking, { 
+            status: 'completed', 
+            completedAt: completedAt // 保存实际完成时间！
+        });
+        
+        modal.remove();
+    });
+    
+    document.getElementById('cancelCompleteBtn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
 // === 条款弹窗 (Terms / Privacy / Cookies) ===
