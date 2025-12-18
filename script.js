@@ -1026,17 +1026,35 @@ function renderStats(config, services, bookings, customers, orders) {
                                 ${filteredBookings.length === 0 ? `
                                     <tr><td colspan="4" class="text-center py-4 text-gray-400">该时间段无服务记录</td></tr>
                                 ` : filteredBookings
-                                    .sort((a, b) => new Date(b.appointmentDate) - new Date(a.appointmentDate))
-                                    .map(b => `
-                                    <tr class="border-b last:border-0 hover:bg-gray-50">
-                                        <td class="py-3 text-sm">${b.appointmentDate}</td>
-                                        <td class="py-3 text-sm font-medium">${b.customerName}</td>
-                                        <td class="py-3 text-sm text-gray-600">${b.serviceName}</td>
-                                        <td class="py-3 text-sm font-bold text-right" style="color: ${config.primary_action_color};">
-                                            RM${parseFloat(b.totalAmount).toFixed(2)}
-                                        </td>
-                                    </tr>
-                                `).join('')}
+                                    .sort((a, b) => {
+                                        // 排序也改成按“实际日期”排
+                                        const dateA = a.completedAt || a.appointmentDate;
+                                        const dateB = b.completedAt || b.appointmentDate;
+                                        return new Date(dateB) - new Date(dateA);
+                                    })
+                                    .map(b => {
+                                        // 👉 【核心修复】计算要显示的日期
+                                        // 如果有实际完成时间，就切分出 YYYY-MM-DD；否则显示预约日期
+                                        const displayDate = b.completedAt ? b.completedAt.split('T')[0] : b.appointmentDate;
+                                        
+                                        // 可选：如果是“实际完成”，可以加个小标记让账目更清楚
+                                        const dateBadge = b.completedAt && b.completedAt.split('T')[0] !== b.appointmentDate 
+                                            ? '<span style="font-size:10px; color:#ef4444;">(实)</span>' 
+                                            : '';
+
+                                        return `
+                                        <tr class="border-b last:border-0 hover:bg-gray-50">
+                                            <td class="py-3 text-sm">
+                                                ${displayDate} ${dateBadge}
+                                            </td>
+                                            <td class="py-3 text-sm font-medium">${b.customerName}</td>
+                                            <td class="py-3 text-sm text-gray-600">${b.serviceName}</td>
+                                            <td class="py-3 text-sm font-bold text-right" style="color: ${config.primary_action_color};">
+                                                RM${parseFloat(b.totalAmount).toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -1259,7 +1277,6 @@ function renderCustomerView(config, services, bookings, posts) {
     const memberDiscount = customerAccount ? getMembershipDiscount(customerAccount.membershipLevel) : 0;
     const products = getDataByType('product');
     
-    // 获取开关状态
     const settings = getDiscountSettings();
     const isShopEnabled = settings.enable_shop !== false;
     
@@ -1287,11 +1304,8 @@ function renderCustomerView(config, services, bookings, posts) {
             ` : `
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
                     ${services.map(service => {
-                        // 1. 实时计算该服务的评分
                         const rating = getServiceRating(service.id);
-                        // 2. 计算有多少人评价过
                         const ratingCount = getDataByType('rating').filter(r => r.serviceId === service.id).length;
-                        
                         const originalPrice = service.price;
                         const discountedPrice = memberDiscount > 0 ? (originalPrice * (1 - memberDiscount)).toFixed(2) : null;
                         const displayImage = service.imageUrl || './assets/default_eye.png';
@@ -1342,9 +1356,11 @@ function renderCustomerView(config, services, bookings, posts) {
                         const displayImage = product.imageUrl || './assets/default_eye.png';
                         return `
                             <div class="product-card group" data-id="${product.id}" style="background: rgba(255, 255, 255, 0.95); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer;">
-                                <div style="height: 180px; overflow: hidden; background: #f9fafb;"> <img src="${displayImage}" 
+                                <div style="height: 180px; overflow: hidden; background: #f9fafb;"> 
+                                    <img src="${displayImage}" 
                                          class="transition-transform duration-500 group-hover:scale-110"
-                                         style="width: 100%; height: 100%; object-fit: contain;"  onerror="this.src='./assets/default_eye.png'">
+                                         style="width: 100%; height: 100%; object-fit: contain;" 
+                                         onerror="this.src='./assets/default_eye.png'">
                                 </div>
                                 <div class="p-4 relative bg-white">
                                     <h3 class="mb-1" style="font-size: ${config.font_size * 1.1}px; font-weight: 700; color: ${config.text_color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -1357,7 +1373,6 @@ function renderCustomerView(config, services, bookings, posts) {
                                     ${isShopEnabled ? `
                                         <button class="addToCartBtn w-full py-2 rounded-lg" 
                                             data-id="${product.id}"
-                                            onclick="event.stopPropagation(); addToCart('${product.id}')"
                                             style="background: ${config.secondary_action_color}; color: #ffffff; font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px;">
                                             加入购物车 🛒
                                         </button>
@@ -1386,7 +1401,7 @@ function renderCustomerView(config, services, bookings, posts) {
                         </div>
                     ` : `
                         <div class="space-y-8">
-                            ${posts.map(post => `
+                            ${posts.slice().reverse().map(post => `
                                 <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                                     ${post.imageUrl ? `
                                         <div style="width: 100%;">
@@ -1397,9 +1412,7 @@ function renderCustomerView(config, services, bookings, posts) {
                                         <h3 class="mb-4" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
                                             ${post.postTitle}
                                         </h3>
-                                        <p class="mb-4" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.05}px; color: ${config.text_color}; opacity: 0.8; line-height: 1.8;">
-                                            ${post.postContent}
-                                        </p>
+                                        <p class="mb-4" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.05}px; color: ${config.text_color}; opacity: 0.8; line-height: 1.8; white-space: pre-wrap;">${post.postContent}</p>
                                         <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.5;">
                                             ${new Date(post.createdAt).toLocaleString('zh-CN')}
                                         </p>
@@ -1934,6 +1947,16 @@ function attachEventListeners(config, services, bookings, posts) {
     document.getElementById('searchInput')?.addEventListener('input', (e) => {
         searchQuery = e.target.value;
         renderApp();
+    });
+
+    // 编辑个人资料
+    document.getElementById('editProfileBtn')?.addEventListener('click', () => {
+        console.log('Edit profile button clicked');
+        const customer = getDataByType('customer_account').find(acc => acc.username === loggedInCustomerName);
+        console.log('Customer found:', customer);
+        if (customer) {
+            showEditProfileModal(config, customer);
+        }
     });
 
     // === 11. 底部条款监听 (新增) ===
@@ -2689,6 +2712,14 @@ function showEditProfileModal(config, customer) {
                     
                     <form id="editProfileForm">
                         <div class="mb-4">
+                            <label for="editProfileUsername" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
+                                用户名
+                            </label>
+                            <input type="text" id="editProfileUsername" required value="${customer.username}"
+                                class="w-full px-4 py-3 rounded-lg border-2"
+                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                        </div>
+                        <div class="mb-4">
                             <label for="editProfileEmail" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
                                 邮箱
                             </label>
@@ -2725,9 +2756,27 @@ function showEditProfileModal(config, customer) {
     document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        const newUsername = document.getElementById('editProfileUsername').value.trim();
+        const newEmail = document.getElementById('editProfileEmail').value.trim();
         const newPassword = document.getElementById('editProfilePassword').value;
+
+        if (!newUsername || !newEmail) {
+            showToast('用户名和邮箱不能为空');
+            return;
+        }
+
+        // 检查用户名是否已存在 (如果改变)
+        if (newUsername !== customer.username) {
+            const existing = getDataByType('customer_account').find(acc => acc.username === newUsername);
+            if (existing) {
+                showToast('用户名已存在');
+                return;
+            }
+        }
+
         const updates = {
-            email: document.getElementById('editProfileEmail').value
+            username: newUsername,
+            email: newEmail
         };
 
         if (newPassword && newPassword.length >= 4) {
@@ -2738,7 +2787,15 @@ function showEditProfileModal(config, customer) {
         }
 
         await updateRecord(customer, updates);
+
+        // 如果用户名改变，更新登录状态
+        if (newUsername !== customer.username) {
+            loggedInCustomerName = newUsername;
+        }
+
         modal.remove();
+        renderApp();
+        showToast('个人资料已更新');
     });
 
     document.getElementById('cancelEditProfileBtn').addEventListener('click', () => {
