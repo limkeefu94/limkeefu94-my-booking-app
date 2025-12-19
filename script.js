@@ -1213,6 +1213,12 @@ function renderSettings(config) {
                                 <input type="text" id="shopName" value="${discountSettings.shop_name || config.app_title}" 
                                     class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
                             </div>
+                            <div class="col-span-1 md:col-span-2 mb-4">
+                                <label class="block mb-1 text-sm font-bold text-green-600">WhatsApp 联系号码 (不要加 + 号)</label>
+                                <input type="number" id="waNumber" value="${discountSettings.wa_number || '60123456789'}" placeholder="601xxxxxxx"
+                                    class="w-full px-3 py-2 rounded border border-green-200 focus:outline-none focus:border-green-500 bg-green-50">
+                                <p class="text-xs text-gray-400 mt-1">💡 用于右下角的悬浮按钮，客人点击直接跳转。</p>
+                            </div>
                             <div class="mb-2">
                                 <label class="block mb-1 text-sm font-bold text-gray-600">商业注册号 (SSM No.)</label>
                                 <input type="text" id="ssmNumber" value="${discountSettings.ssm_number || ''}" placeholder="e.g. 202403XXXXXX"
@@ -1987,6 +1993,7 @@ function attachEventListeners(config, services, bookings, posts) {
             shop_name: document.getElementById('shopName').value.trim(),
             ssm_number: document.getElementById('ssmNumber').value.trim(),
             shop_address: document.getElementById('shopAddress').value.trim(),
+            wa_number: document.getElementById('waNumber').value,
             map_link: document.getElementById('mapLink').value.trim(),
             // 社交媒体
             fb_link: document.getElementById('fbLink').value.trim(),
@@ -3195,6 +3202,7 @@ function showEditServiceModal(config, service) {
 
 initApp();
 
+
 // ==================== 商品管理功能 ====================
 
 function showProductModal(config) {
@@ -3721,4 +3729,114 @@ function importData(input) {
     reader.readAsText(file);
 }
 
+// ==========================================
+// 👇 新增：全局挂件 (Google翻译 + WhatsApp悬浮窗)
+// ==========================================
+function initGlobalWidgets() {
+    const settings = getDiscountSettings(); // 获取设置
+
+    // --- 1. 🟢 悬浮 WhatsApp 按钮 ---
+    // 优先使用设置里的号码，如果没有，就用默认备用号
+    const myPhone = settings.wa_number || "60123456789"; 
+    const defaultText = "你好，我想咨询美睫服务 (Hi, I am interested in eyelash services)";
+    
+    const waUrl = `https://wa.me/${myPhone}?text=${encodeURIComponent(defaultText)}`;
+    
+    // 防止重复添加 (页面刷新时)
+    if (document.querySelector('.floating-wa-btn')) {
+        document.querySelector('.floating-wa-btn').remove();
+    }
+
+    const waBtn = document.createElement('a');
+    waBtn.href = waUrl;
+    waBtn.target = "_blank";
+    waBtn.className = "floating-wa-btn";
+    
+    waBtn.style.cssText = `
+        position: fixed;
+        bottom: 110px; 
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        background-color: #25D366;
+        color: white;
+        border-radius: 50%;
+        text-align: center;
+        font-size: 35px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.3s;
+        text-decoration: none;
+    `;
+    waBtn.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" style="width: 35px; height: 35px;">';
+    
+    waBtn.onmouseover = () => waBtn.style.transform = "scale(1.1)";
+    waBtn.onmouseout = () => waBtn.style.transform = "scale(1)";
+
+    document.body.appendChild(waBtn);
+
+
+    // --- 2. 🌍 Google 翻译挂件 (修复版) ---
+    // 检查是否已经存在，防止重复
+    if (document.getElementById('google_translate_element')) return;
+
+    const translateDiv = document.createElement('div');
+    translateDiv.id = "google_translate_element";
+    
+    // 👇 加了背景色和边框，确保就算加载慢，也能看到一个框框
+    translateDiv.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 20px; 
+        z-index: 10000; /* 层级极高 */
+        background: white;
+        padding: 5px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        min-width: 100px; /* 最小宽度 */
+        min-height: 30px; /* 最小高度 */
+    `;
+    document.body.appendChild(translateDiv);
+
+    // 注入 Google 脚本
+    window.googleTranslateElementInit = function() {
+        new google.translate.TranslateElement({
+            pageLanguage: 'zh-CN', 
+            includedLanguages: 'en,ms,zh-CN',
+            layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+            autoDisplay: false
+        }, 'google_translate_element');
+    };
+
+    const libScript = document.createElement('script');
+    libScript.type = 'text/javascript';
+    libScript.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+    // 增加错误处理
+    libScript.onerror = function() {
+        translateDiv.innerHTML = '<span style="font-size:12px; color:red;">Translation Error</span>';
+    };
+    document.body.appendChild(libScript);
+    
+    // 样式美化
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .goog-te-banner-frame.skiptranslate { display: none !important; } 
+        body { top: 0px !important; }
+        #google_translate_element img { display: none; }
+        .goog-te-gadget-simple { 
+            background-color: transparent !important; 
+            border: none !important;
+            padding: 0 !important;
+            font-size: 13px !important;
+        }
+        /* 修复下拉菜单被遮挡的问题 */
+        .goog-te-menu-value span { color: #555 !important; font-weight: bold; }
+    `;
+    document.head.appendChild(style);
+}
+
 initApp();
+initGlobalWidgets();
