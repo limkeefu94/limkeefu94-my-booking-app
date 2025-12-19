@@ -1215,7 +1215,7 @@ function renderSettings(config) {
                             </div>
                             <div class="col-span-1 md:col-span-2 mb-4">
                                 <label class="block mb-1 text-sm font-bold text-green-600">WhatsApp 联系号码 (不要加 + 号)</label>
-                                <input type="number" id="waNumber" value="${discountSettings.wa_number || '60123456789'}" placeholder="601xxxxxxx"
+                                <input type="text" inputmode="numeric" id="waNumber" value="${discountSettings.wa_number || '60123456789'}" placeholder="601xxxxxxx" oninput="this.value = this.value.replace(/[^0-9]/g, '')"
                                     class="w-full px-3 py-2 rounded border border-green-200 focus:outline-none focus:border-green-500 bg-green-50">
                                 <p class="text-xs text-gray-400 mt-1">💡 用于右下角的悬浮按钮，客人点击直接跳转。</p>
                             </div>
@@ -3733,16 +3733,14 @@ function importData(input) {
 // 👇 新增：全局挂件 (Google翻译 + WhatsApp悬浮窗)
 // ==========================================
 function initGlobalWidgets() {
-    const settings = getDiscountSettings(); // 获取设置
+    const settings = getDiscountSettings(); 
 
     // --- 1. 🟢 悬浮 WhatsApp 按钮 ---
-    // 优先使用设置里的号码，如果没有，就用默认备用号
     const myPhone = settings.wa_number || "60123456789"; 
     const defaultText = "你好，我想咨询美睫服务 (Hi, I am interested in eyelash services)";
-    
     const waUrl = `https://wa.me/${myPhone}?text=${encodeURIComponent(defaultText)}`;
     
-    // 防止重复添加 (页面刷新时)
+    // 清理旧按钮
     if (document.querySelector('.floating-wa-btn')) {
         document.querySelector('.floating-wa-btn').remove();
     }
@@ -3779,29 +3777,25 @@ function initGlobalWidgets() {
     document.body.appendChild(waBtn);
 
 
-    // --- 2. 🌍 Google 翻译挂件 (修复版) ---
-    // 检查是否已经存在，防止重复
+    // --- 2. 🌍 Google 翻译挂件 (去横条版) ---
     if (document.getElementById('google_translate_element')) return;
 
     const translateDiv = document.createElement('div');
     translateDiv.id = "google_translate_element";
     
-    // 👇 加了背景色和边框，确保就算加载慢，也能看到一个框框
     translateDiv.style.cssText = `
         position: fixed;
         bottom: 20px;
         left: 20px; 
-        z-index: 10000; /* 层级极高 */
-        background: white;
-        padding: 5px;
+        z-index: 10000;
+        background: rgba(255, 255, 255, 0.9); /* 半透明白底 */
+        padding: 4px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        min-width: 100px; /* 最小宽度 */
-        min-height: 30px; /* 最小高度 */
+        border: 1px solid #eee;
     `;
     document.body.appendChild(translateDiv);
 
-    // 注入 Google 脚本
     window.googleTranslateElementInit = function() {
         new google.translate.TranslateElement({
             pageLanguage: 'zh-CN', 
@@ -3814,26 +3808,38 @@ function initGlobalWidgets() {
     const libScript = document.createElement('script');
     libScript.type = 'text/javascript';
     libScript.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
-    // 增加错误处理
     libScript.onerror = function() {
-        translateDiv.innerHTML = '<span style="font-size:12px; color:red;">Translation Error</span>';
+        translateDiv.style.display = 'none'; // 加载失败直接隐藏，不显示丑陋的错误字
     };
     document.body.appendChild(libScript);
     
-    // 样式美化
+    // 👇 【关键修改】这里是消灭横条的 CSS 魔法
     const style = document.createElement('style');
     style.innerHTML = `
+        /* 1. 彻底隐藏 Google 顶部横条 */
         .goog-te-banner-frame.skiptranslate { display: none !important; } 
-        body { top: 0px !important; }
-        #google_translate_element img { display: none; }
+        iframe.goog-te-banner-frame { display: none !important; }
+        
+        /* 2. 强制网页顶部不留白 (把网页推上去) */
+        body { top: 0px !important; position: static !important; }
+        
+        /* 3. 美化左下角的翻译框 */
+        #google_translate_element img { display: none !important; } /* 藏掉 Google Logo */
         .goog-te-gadget-simple { 
             background-color: transparent !important; 
             border: none !important;
             padding: 0 !important;
             font-size: 13px !important;
+            font-family: inherit !important;
         }
-        /* 修复下拉菜单被遮挡的问题 */
-        .goog-te-menu-value span { color: #555 !important; font-weight: bold; }
+        /* 这里的 span 控制文字样式 */
+        .goog-te-menu-value span { 
+            color: #555 !important; 
+            font-weight: bold;
+            border: none !important; 
+        }
+        .goog-te-menu-value span:nth-child(2) { display: none !important; } /* 藏掉那条竖线 */
+        .goog-te-menu-value span:nth-child(3) { display: none !important; } /* 藏掉那个 'Select Language' */
     `;
     document.head.appendChild(style);
 }
