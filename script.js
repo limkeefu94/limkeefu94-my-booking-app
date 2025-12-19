@@ -2311,97 +2311,76 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
     const availablePoints = customerAccount ? customerAccount.points : 0;
     const settings = getDiscountSettings();
     const pointsToRmRate = settings.points_to_rm_rate || 10;
-
-    // 【关键修复】定义积分开关变量 (少了这行会导致按钮没反应)
     const showRewards = settings.enable_rewards !== false;
 
     const modal = document.createElement('div');
+    // z-50 保证在最上层
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    
+    // 👇【关键修复】注意 style 里的 max-height 和 overflow-y
     modal.innerHTML = `
-              <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                  <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                     预约 ${serviceName}
-                 </h3>
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 24px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto;">
+            <h3 class="mb-6 text-center" style="font-size: ${config.font_size * 1.5}px; font-weight: 700; color: ${config.primary_action_color};">
+                预约 ${serviceName}
+            </h3>
+        
+            <form id="bookingForm">
+                <div class="mb-4">
+                    <label for="customerName" class="block mb-1 font-bold text-sm">姓名</label>
+                    <input type="text" id="customerName" required value="${loggedInCustomerName || ''}"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
+                </div>
             
-                 <form id="bookingForm">
-                    <div class="mb-4">
-                       <label for="customerName" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                           姓名
-                       </label>
-                       <input type="text" id="customerName" required value="${loggedInCustomerName}"
-                        class="w-full px-4 py-3 rounded-lg border-2"
-                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                   </div>
-                
-                   <div class="mb-4">
-                       <label for="customerPhone" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                          电话
-                       </label>
-                       <input type="tel" id="customerPhone" required
-                        class="w-full px-4 py-3 rounded-lg border-2"
-                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                   </div>
-                
-                   <div class="mb-4">
-                       <label for="appointmentDate" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                          预约日期
-                      </label>
-                      <input type="date" id="appointmentDate" required min="${new Date().toISOString().split('T')[0]}"
-                        class="w-full px-4 py-3 rounded-lg border-2"
-                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                   </div>
-                
-                   <div class="mb-4">
-                       <label for="appointmentTime" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                           预约时间
-                       </label>
-                       <input type="time" id="appointmentTime" required
-                        class="w-full px-4 py-3 rounded-lg border-2"
-                        style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                   </div>
-                
-                   ${customerAccount && showRewards ? `
-                        <div class="mb-4" style="padding: 16px; background: ${config.primary_action_color}11; border-radius: 12px;">
-                            <div class="flex justify-between items-center mb-2">
-                                <label for="pointsToUse" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                    使用积分 (可用: ${availablePoints}分)
-                               </label>
-                               <button type="button" id="useMaxPointsBtn" 
-                                   style="font-family: Lato, sans-serif; background: ${config.secondary_action_color}; color: #ffffff; padding: 6px 16px; border-radius: 8px; font-size: ${config.font_size * 0.85}px; font-weight: 600;">
-                                   使用最大值
-                               </button>
-                          </div>
-                          <input type="number" id="pointsToUse" value="0" min="0" max="${availablePoints}"
-                               class="w-full px-4 py-3 rounded-lg border-2"
-                               style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                          <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.85}px; color: ${config.text_color}; opacity: 0.7; margin-top: 8px;">
-                               兑换率: ${pointsToRmRate}积分 = 1 RM
-                          </p>
-                     </div>
+                <div class="mb-4">
+                    <label for="customerPhone" class="block mb-1 font-bold text-sm">电话</label>
+                    <input type="tel" id="customerPhone" required
+                        class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
+                </div>
+            
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="appointmentDate" class="block mb-1 font-bold text-sm">日期</label>
+                        <input type="date" id="appointmentDate" required min="${new Date().toISOString().split('T')[0]}"
+                            class="w-full px-3 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
+                    </div>
+                    <div>
+                        <label for="appointmentTime" class="block mb-1 font-bold text-sm">时间</label>
+                        <input type="time" id="appointmentTime" required
+                            class="w-full px-3 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
+                    </div>
+                </div>
+            
+                ${customerAccount && showRewards ? `
+                    <div class="mb-4 p-4 rounded-xl bg-gray-50 border border-gray-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="font-bold text-sm">使用积分 (可用: ${availablePoints})</label>
+                            <button type="button" id="useMaxPointsBtn" 
+                                style="background: ${config.secondary_action_color}; color: #fff; padding: 4px 12px; border-radius: 6px; font-size: 12px;">
+                                最大
+                            </button>
+                        </div>
+                        <input type="number" id="pointsToUse" value="0" min="0" max="${availablePoints}"
+                            class="w-full px-4 py-2 rounded-lg border-2 mb-2" style="border-color: ${config.text_color}33;">
+                        <p class="text-xs opacity-60 text-right">10积分 = RM1</p>
+                    </div>
                     
-                     <div class="mb-6" style="padding: 16px; background: ${config.secondary_action_color}11; border-radius: 12px;">
-                        <div class="flex justify-between mb-2">
-                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color};">原价:</span>
-                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color};">RM${servicePrice}</span>
-                        </div>
-                        <div class="flex justify-between mb-2">
-                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color};">积分抵扣:</span>
-                            <span id="pointsDiscount" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.primary_action_color};">-RM0.00</span>
-                        </div>
-                        <div class="flex justify-between" style="padding-top: 8px; border-top: 2px solid ${config.primary_action_color}44;">
-                            <span style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; font-weight: 700;">最终价格:</span>
-                            <span id="finalPrice" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.primary_action_color}; font-weight: 700;">RM${servicePrice}</span>
+                    <div class="mb-6 p-4 rounded-xl" style="background: ${config.secondary_action_color}11;">
+                        <div class="flex justify-between text-sm mb-1"><span>原价:</span><span>RM${servicePrice}</span></div>
+                        <div class="flex justify-between text-sm mb-2 text-pink-500"><span>积分抵扣:</span><span id="pointsDiscount">-RM0.00</span></div>
+                        <div class="flex justify-between font-bold border-t border-gray-300 pt-2">
+                            <span>最终价格:</span>
+                            <span id="finalPrice" style="color: ${config.primary_action_color};">RM${servicePrice}</span>
                         </div>
                     </div>
                 ` : `<div class="mb-6"></div>`}
-                
-                <div class="flex gap-3">
-                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
-                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
+            
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg font-bold text-white shadow-md"
+                        style="background: ${config.primary_action_color};">
                         确认预约
                     </button>
-                    <button type="button" id="cancelBookingBtn" class="flex-1 py-3 rounded-lg"
-                        style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">
+                    <button type="button" id="cancelBookingBtn" class="flex-1 py-3 rounded-lg border-2 font-bold"
+                        style="border-color: ${config.text_color}; color: ${config.text_color}; background: transparent;">
                         取消
                     </button>
                 </div>
@@ -2411,59 +2390,45 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
 
     document.body.appendChild(modal);
 
-    // 更新价格显示 (仅当积分输入框存在时)
+    // === 下面是逻辑部分，保持原样即可 ===
     const pointsInput = document.getElementById('pointsToUse');
     if (pointsInput) {
         pointsInput.addEventListener('input', () => {
             const pointsUsed = parseInt(pointsInput.value) || 0;
             const pointsDiscount = (pointsUsed / pointsToRmRate).toFixed(2);
             const finalPrice = Math.max(0, parseFloat(servicePrice) - parseFloat(pointsDiscount)).toFixed(2);
-
             document.getElementById('pointsDiscount').textContent = `-RM${pointsDiscount}`;
             document.getElementById('finalPrice').textContent = `RM${finalPrice}`;
         });
-
-        // 最大值按钮
         const useMaxPointsBtn = document.getElementById('useMaxPointsBtn');
         if (useMaxPointsBtn) {
             useMaxPointsBtn.addEventListener('click', () => {
                 const maxPointsByPrice = Math.floor(parseFloat(servicePrice) * pointsToRmRate);
                 const maxPoints = Math.min(availablePoints, maxPointsByPrice);
-
                 pointsInput.value = maxPoints;
-
-                // 触发更新
                 pointsInput.dispatchEvent(new Event('input'));
             });
         }
     }
 
-    // 提交预约 (含防冲突逻辑)
     document.getElementById('bookingForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-
         const targetDate = document.getElementById('appointmentDate').value;
         const targetTime = document.getElementById('appointmentTime').value;
-        const name = document.getElementById('customerName').value;
-        const phone = document.getElementById('customerPhone').value;
-
-        // === 防冲突检查 ===
+        
+        // 简单的防冲突检查
         const existingBookings = getDataByType('booking');
         const hasConflict = existingBookings.some(b =>
-            b.appointmentDate === targetDate &&
-            b.appointmentTime === targetTime &&
-            b.status !== 'cancelled'
+            b.appointmentDate === targetDate && b.appointmentTime === targetTime && b.status !== 'cancelled'
         );
 
         if (hasConflict) {
-            showToast('❌ 该时间段已有预约，请选择其他时间');
+            showToast('❌ 该时间段已有预约');
             return;
         }
 
-        // 计算积分和价格
         const pointsUsed = (customerAccount && showRewards) ? (parseInt(document.getElementById('pointsToUse')?.value) || 0) : 0;
-        const pointsDiscount = (pointsUsed / pointsToRmRate);
-        const finalPrice = Math.max(0, parseFloat(servicePrice) - pointsDiscount);
+        const finalPrice = Math.max(0, parseFloat(servicePrice) - (pointsUsed / pointsToRmRate));
 
         if (customerAccount && pointsUsed > availablePoints) {
             showToast('积分不足');
@@ -2472,8 +2437,8 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
 
         const success = await createRecord({
             type: 'booking',
-            customerName: name,
-            customerPhone: phone,
+            customerName: document.getElementById('customerName').value,
+            customerPhone: document.getElementById('customerPhone').value,
             serviceId: serviceId,
             serviceName: serviceName,
             appointmentDate: targetDate,
@@ -2485,23 +2450,15 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
 
         if (success) {
             if (customerAccount && pointsUsed > 0) {
-                await updateRecord(customerAccount, {
-                    points: customerAccount.points - pointsUsed
-                });
+                await updateRecord(customerAccount, { points: customerAccount.points - pointsUsed });
             }
             modal.remove();
         }
     });
 
-    document.getElementById('cancelBookingBtn').addEventListener('click', () => {
-        modal.remove();
-    });
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.remove();
-        }
-    });
+    document.getElementById('cancelBookingBtn').addEventListener('click', () => modal.remove());
+    // 点击背景关闭
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
 // === 评价弹窗 ===
