@@ -267,7 +267,7 @@ async function deleteRecord(record) {
 // 获取折扣设置
 function getDiscountSettings() {
     const settings = getDataByType('discount_settings')[0];
-    return settings || {
+    const defaultSettings = {
         bronze_discount: 0,
         silver_discount: 5,
         gold_discount: 10,
@@ -276,8 +276,18 @@ function getDiscountSettings() {
         silver_points: 100,
         gold_points: 300,
         platinum_points: 600,
-        points_to_rm_rate: 10
+        points_to_rm_rate: 10,
+        enable_rewards: false,
+        enable_shop: false,
+        shop_name: '',
+        ssm_number: '',
+        shop_address: '',
+        map_link: '',
+        fb_link: '',
+        ig_link: '',
+        tiktok_link: ''
     };
+    return settings ? { ...defaultSettings, ...settings } : defaultSettings;
 }
 
 // 会员折扣计算
@@ -586,6 +596,7 @@ function renderLoginPage(app, config) {
 
 function renderMainApp(app, config, services, bookings, posts, customers) {
     const currentYear = new Date().getFullYear();
+    const settings = getDiscountSettings();
     app.innerHTML = `
         <div class="min-h-full">
             <header style="background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; border-bottom: 3px solid ${config.primary_action_color};">
@@ -644,16 +655,36 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                         ${currentMode === 'owner' ? renderOwnerView(config, services, bookings, posts, customers) : renderCustomerView(config, services, bookings, posts)}
                     </main>
 
-                    <footer class="mt-auto py-8 text-center border-t border-gray-200" style="background: #fafafa; color: ${config.text_color};">
+                    <footer class="mt-auto py-12 text-center border-t border-gray-100" style="background: #fafafa; color: ${config.text_color};">
                        <div class="max-w-7xl mx-auto px-6">
-                           <div class="flex flex-wrap justify-center gap-6 mb-4 text-sm font-medium opacity-70">
-                               <button class="footer-link hover:underline" data-type="terms">Terms & Conditions</button>
-                               <button class="footer-link hover:underline" data-type="privacy">Privacy Policy</button>
-                               <button class="footer-link hover:underline" data-type="cookies">Cookies Notice</button>
+                    
+                           <div class="flex justify-center gap-8 mb-8">
+                               ${settings.fb_link ? `<a href="${settings.fb_link}" target="_blank" class="opacity-60 hover:opacity-100 hover:scale-110 transition-all"><img src="https://cdn-icons-png.flaticon.com/512/5968/5968764.png" width="24" alt="FB"></a>` : ''}
+                               ${settings.ig_link ? `<a href="${settings.ig_link}" target="_blank" class="opacity-60 hover:opacity-100 hover:scale-110 transition-all"><img src="https://cdn-icons-png.flaticon.com/512/3955/3955024.png" width="24" alt="IG"></a>` : ''}
+                               ${settings.tiktok_link ? `<a href="${settings.tiktok_link}" target="_blank" class="opacity-60 hover:opacity-100 hover:scale-110 transition-all"><img src="https://cdn-icons-png.flaticon.com/512/3046/3046121.png" width="24" alt="TikTok"></a>` : ''}
                            </div>
-                           <p class="text-xs opacity-50">
-                               Copyright © ${currentYear} ${config.app_title}. All rights reserved.<br>
-                               Designed for Beauty & Wellness.
+
+                           ${(settings.shop_address || settings.ssm_number) ? `
+                               <div class="mb-8 inline-block text-sm opacity-70">
+                                   ${settings.shop_name ? `<p class="font-bold text-base mb-1">${settings.shop_name}</p>` : ''}
+                                   ${settings.shop_address ? `
+                                       <p class="mb-1 flex items-center justify-center gap-1">
+                                           📍 ${settings.shop_address}
+                                           ${settings.map_link ? `<a href="${settings.map_link}" target="_blank" class="text-blue-500 font-bold ml-1 hover:underline">[导航]</a>` : ''}
+                                       </p>
+                                   ` : ''}
+                                   ${settings.ssm_number ? `<p class="text-xs text-gray-400">SSM: ${settings.ssm_number}</p>` : ''}
+                               </div>
+                           ` : ''}
+
+                           <div class="flex flex-wrap justify-center gap-6 mb-4 text-xs font-bold uppercase tracking-wider opacity-40">
+                               <button class="footer-link hover:underline" onclick="showPolicyModal(config, 'terms')">Terms</button>
+                               <button class="footer-link hover:underline" onclick="showPolicyModal(config, 'privacy')">Privacy</button>
+                               <button class="footer-link hover:underline" onclick="showPolicyModal(config, 'return_policy')">Return Policy</button>
+                           </div>
+                    
+                           <p class="text-[10px] opacity-30 mt-2">
+                               Copyright © ${new Date().getFullYear()} ${settings.shop_name || config.app_title}. All rights reserved.
                            </p>
                        </div>
                    </footer>
@@ -1161,108 +1192,169 @@ function renderCustomersManagement(config, customers, bookings) {
                 </div>
             `;
 }
-
+// ==========================================
+// 👇 修改：设置页面 (加入商家信息、社交链接、备份按钮)
+// ==========================================
 function renderSettings(config) {
     const discountSettings = getDiscountSettings();
-    
+
     return `
         <div>
-            <h2 class="mb-8" style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color};">
-                系统设置
+            <h2 style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color}; margin-bottom: 24px;">
+                ⚙️ 系统设置
             </h2>
-            
-            <div class="mb-8" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
-                <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
-                    👤 修改业主登录信息
-                </h3>
-                <form id="changeCredentialsForm">
-                    <div class="mb-4">
-                        <label class="block mb-2" style="font-size: ${config.font_size * 0.9}px;">新用户名 (当前: ${ownerCredentials.username})</label>
-                        <input type="text" id="newUsername" value="${ownerCredentials.username}" required class="w-full px-4 py-3 rounded-lg border-2">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block mb-2" style="font-size: ${config.font_size * 0.9}px;">新密码 (不改请留空)</label>
-                        <input type="password" id="newPassword" placeholder="输入新密码" class="w-full px-4 py-3 rounded-lg border-2">
-                    </div>
-                    <button type="submit" class="btn-primary px-8 py-3 rounded-lg" style="background: ${config.primary_action_color}; color: #ffffff;">保存修改</button>
-                </form>
-            </div>
-            
-            <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px;">
-                <h3 class="mb-6" style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.text_color};">
-                    ⚙️ 规则与开关
-                </h3>
-                
                 <form id="discountSettingsForm">
-                    <div class="grid grid-cols-1 gap-4 mb-8">
-                        <div class="flex items-center justify-between p-4 rounded-lg border-2" style="border-color: ${config.primary_action_color}; background: ${config.primary_action_color}11;">
-                            <div>
-                                <h4 style="font-weight: 700;">启用积分与会员</h4>
-                                <p style="font-size: 12px; opacity: 0.7;">累计消费升级，积分抵扣</p>
+                    
+                    <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
+                        <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🏢 店铺与商家信息</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="mb-2">
+                                <label class="block mb-1 text-sm font-bold text-gray-600">店铺名称</label>
+                                <input type="text" id="shopName" value="${discountSettings.shop_name || config.app_title}" 
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
                             </div>
+                            <div class="mb-2">
+                                <label class="block mb-1 text-sm font-bold text-gray-600">商业注册号 (SSM No.)</label>
+                                <input type="text" id="ssmNumber" value="${discountSettings.ssm_number || ''}" placeholder="e.g. 202403XXXXXX"
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div class="col-span-1 md:col-span-2 mb-2">
+                                <label class="block mb-1 text-sm font-bold text-gray-600">店铺完整地址</label>
+                                <input type="text" id="shopAddress" value="${discountSettings.shop_address || ''}" placeholder="输入店铺地址..."
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div class="col-span-1 md:col-span-2 mb-2">
+                                <label class="block mb-1 text-sm font-bold text-gray-600">导航链接 (Google Maps/Waze)</label>
+                                <input type="text" id="mapLink" value="${discountSettings.map_link || ''}" placeholder="粘贴地图分享链接..."
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                        </div>
+
+                        <h4 class="mt-6 mb-4 font-bold text-sm text-gray-500 uppercase tracking-wider">社交媒体链接</h4>
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3">
+                                <span class="w-16 text-sm font-bold">FB</span>
+                                <input type="text" id="fbLink" value="${discountSettings.fb_link || ''}" placeholder="Facebook Link" class="flex-1 px-3 py-2 rounded border">
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="w-16 text-sm font-bold">IG</span>
+                                <input type="text" id="igLink" value="${discountSettings.ig_link || ''}" placeholder="Instagram Link" class="flex-1 px-3 py-2 rounded border">
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="w-16 text-sm font-bold">TikTok</span>
+                                <input type="text" id="tiktokLink" value="${discountSettings.tiktok_link || ''}" placeholder="TikTok Link" class="flex-1 px-3 py-2 rounded border">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
+                        <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">⚙️ 积分与规则</h3>
+                        
+                        <div class="mb-4 flex items-center justify-between">
+                            <span class="font-bold text-gray-700">启用积分功能</span>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="enableRewards" class="sr-only peer" ${discountSettings.enable_rewards !== false ? 'checked' : ''}>
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-[${config.primary_action_color}] peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-500"></div>
                             </label>
-                        </div>
-
-                        <div class="flex items-center justify-between p-4 rounded-lg border-2" style="border-color: ${config.secondary_action_color}; background: ${config.secondary_action_color}11;">
-                            <div>
-                                <h4 style="font-weight: 700;">启用在线商城</h4>
-                                <p style="font-size: 12px; opacity: 0.7;">展示商品并允许下单</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="enableShop" class="sr-only peer" ${discountSettings.enable_shop !== false ? 'checked' : ''}>
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-[${config.secondary_action_color}] peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <h4 class="mb-4 font-bold border-b pb-2">🏆 会员等级与折扣</h4>
-                    <div class="space-y-4 mb-8">
-                        <div class="grid grid-cols-3 gap-2 text-sm opacity-60 mb-1">
-                            <span>等级名称</span>
-                            <span>所需积分</span>
-                            <span>折扣 (%)</span>
                         </div>
                         
-                        <div class="grid grid-cols-3 gap-2 items-center">
-                            <span style="color: #cd7f32; font-weight: bold;">🥉 铜牌</span>
-                            <input type="number" id="bronzePoints" value="${discountSettings.bronze_points || 0}" class="px-2 py-1 border rounded">
-                            <input type="number" id="bronzeDiscount" value="${discountSettings.bronze_discount || 0}" class="px-2 py-1 border rounded">
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 items-center">
-                            <span style="color: #c0c0c0; font-weight: bold;">🥈 银牌</span>
-                            <input type="number" id="silverPoints" value="${discountSettings.silver_points || 100}" class="px-2 py-1 border rounded">
-                            <input type="number" id="silverDiscount" value="${discountSettings.silver_discount || 5}" class="px-2 py-1 border rounded">
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 items-center">
-                            <span style="color: #ffd700; font-weight: bold;">🥇 金牌</span>
-                            <input type="number" id="goldPoints" value="${discountSettings.gold_points || 300}" class="px-2 py-1 border rounded">
-                            <input type="number" id="goldDiscount" value="${discountSettings.gold_discount || 10}" class="px-2 py-1 border rounded">
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 items-center">
-                            <span style="color: #e5e4e2; font-weight: bold;">💎 铂金</span>
-                            <input type="number" id="platinumPoints" value="${discountSettings.platinum_points || 600}" class="px-2 py-1 border rounded">
-                            <input type="number" id="platinumDiscount" value="${discountSettings.platinum_discount || 15}" class="px-2 py-1 border rounded">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">消费多少积1分 (RM)</label>
+                                <input type="number" id="rmToPointsRate" value="${discountSettings.rm_to_points_rate || 1}" min="1" 
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">多少积分抵扣 RM1</label>
+                                <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}" min="1" 
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
                         </div>
                     </div>
 
-                    <h4 class="mb-4 font-bold border-b pb-2">💰 积分抵扣汇率</h4>
-                    <div class="flex items-center gap-4 mb-8">
-                        <span class="text-sm">每使用</span>
-                        <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}" class="w-20 px-2 py-1 border rounded text-center font-bold">
-                        <span class="text-sm">积分 = 抵扣 RM 1.00</span>
+                    <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
+                        <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">💎 会员折扣设置</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">铜牌会员折扣 (%)</label>
+                                <input type="number" id="bronzeDiscount" value="${discountSettings.bronze_discount || 0}" min="0" max="100"
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">铜牌所需积分</label>
+                                <input type="number" id="bronzePoints" value="${discountSettings.bronze_points || 0}" min="0"
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">银牌会员折扣 (%)</label>
+                                <input type="number" id="silverDiscount" value="${discountSettings.silver_discount || 5}" min="0" max="100"
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">银牌所需积分</label>
+                                <input type="number" id="silverPoints" value="${discountSettings.silver_points || 100}" min="0"
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">金牌会员折扣 (%)</label>
+                                <input type="number" id="goldDiscount" value="${discountSettings.gold_discount || 10}" min="0" max="100"
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">金牌所需积分</label>
+                                <input type="number" id="goldPoints" value="${discountSettings.gold_points || 300}" min="0"
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">白金会员折扣 (%)</label>
+                                <input type="number" id="platinumDiscount" value="${discountSettings.platinum_discount || 15}" min="0" max="100"
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-sm font-bold text-gray-600">白金所需积分</label>
+                                <input type="number" id="platinumPoints" value="${discountSettings.platinum_points || 600}" min="0"
+                                    class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            </div>
+                        </div>
                     </div>
-                    
-                    <button type="submit" class="btn-primary px-8 py-3 rounded-lg w-full"
-                        style="background: ${config.primary_action_color}; color: #ffffff;">
+
+                    <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
+                        <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🛒 商品功能</h3>
+                        <div class="mb-4 flex items-center justify-between">
+                            <span class="font-bold text-gray-700">启用商品销售功能</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="enableShop" class="sr-only peer" ${discountSettings.enable_shop !== false ? 'checked' : ''}>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-500"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-4 rounded-xl font-bold text-white shadow-lg mb-8 transform active:scale-95 transition-transform"
+                        style="background: ${config.primary_action_color};">
                         保存所有设置
                     </button>
                 </form>
-            </div>s
+
+                <div class="mb-12 p-6 rounded-2xl bg-gray-100 border-2 border-dashed border-gray-300">
+                    <h3 class="mb-2 font-bold text-gray-700">💾 数据安全备份</h3>
+                    <p class="text-xs text-gray-500 mb-4">建议定期导出备份。如需恢复数据，请点击导入。</p>
+                    
+                    <div class="flex gap-4">
+                        <button type="button" onclick="exportData()" class="flex-1 py-3 rounded-lg font-bold text-white bg-gray-600 hover:bg-gray-700 shadow-sm flex items-center justify-center gap-2">
+                            <span>⬇️</span> 导出备份
+                        </button>
+                        
+                        <button type="button" onclick="document.getElementById('importFile').click()" class="flex-1 py-3 rounded-lg font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm flex items-center justify-center gap-2">
+                            <span>⬆️</span> 导入恢复
+                        </button>
+                        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(this)">
+                    </div>
+                </div>
+
+            </main>
         </div>
     `;
+
 }
 
 function renderCustomerView(config, services, bookings, posts) {
@@ -1891,9 +1983,18 @@ function attachEventListeners(config, services, bookings, posts) {
         const currentSettings = getDataByType('discount_settings')[0] || {};
         const newSettings = {
             type: 'discount_settings',
+            // 商家信息
+            shop_name: document.getElementById('shopName').value.trim(),
+            ssm_number: document.getElementById('ssmNumber').value.trim(),
+            shop_address: document.getElementById('shopAddress').value.trim(),
+            map_link: document.getElementById('mapLink').value.trim(),
+            // 社交媒体
+            fb_link: document.getElementById('fbLink').value.trim(),
+            ig_link: document.getElementById('igLink').value.trim(),
+            tiktok_link: document.getElementById('tiktokLink').value.trim(),
+            // 积分与规则
             enable_rewards: document.getElementById('enableRewards').checked,
             enable_shop: document.getElementById('enableShop').checked,
-            // 保持原有的数值设置
             bronze_points: parseInt(document.getElementById('bronzePoints').value) || 0,
             bronze_discount: parseInt(document.getElementById('bronzeDiscount').value) || 0,
             silver_points: parseInt(document.getElementById('silverPoints').value) || 100,
@@ -3552,6 +3653,72 @@ function showPostModal(config) {
     
     document.getElementById('cancelPostBtn').addEventListener('click', () => modal.remove());
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+// ==========================================
+// 👇 新增：数据备份与恢复功能 (放在文件最末尾)
+// ==========================================
+function exportData() {
+    const allData = {
+        customers: getDataByType('customer_account'),
+        bookings: getDataByType('booking'),
+        services: getDataByType('service'),
+        products: getDataByType('product'),
+        orders: getDataByType('product_order'),
+        reviews: getDataByType('review'),
+        settings: getDataByType('discount_settings'),
+        owner: getDataByType('owner_credentials')
+    };
+    
+    const dataStr = JSON.stringify(allData, null, 2); // 美化格式
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `GemBrow_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    showToast('备份文件已下载 ✅');
+}
+
+function importData(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    if (!confirm("⚠️ 警告：导入数据将【覆盖】当前所有数据！\n建议先导出备份。\n确定要继续吗？")) {
+        input.value = ''; 
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            
+            // 简单的校验
+            if (importedData.customers && importedData.bookings) {
+                localStorage.setItem('gem_brow_data', JSON.stringify(importedData.customers.concat(
+                    importedData.bookings, 
+                    importedData.services || [], 
+                    importedData.products || [], 
+                    importedData.orders || [],
+                    importedData.reviews || [],
+                    importedData.settings || [],
+                    importedData.owner || []
+                )));
+                
+                alert("数据恢复成功！系统将刷新。");
+                location.reload();
+            } else {
+                alert("文件格式错误，找不到关键数据！");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("读取失败，文件可能已损坏。");
+        }
+    };
+    reader.readAsText(file);
 }
 
 initApp();
