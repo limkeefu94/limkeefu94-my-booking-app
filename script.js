@@ -2063,74 +2063,62 @@ function attachEventListeners(config, services, bookings, posts) {
     document.getElementById('discountSettingsForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        try {
-            // 【关键】第一步：先保存管理员账号密码到 localStorage
-            // 这样当后续 dataHandler 触发时，能加载到最新的 owner_credentials
-            const newAdminUser = document.getElementById('adminUsername').value.trim();
-            const newAdminPass = document.getElementById('adminPassword').value.trim();
-            
-            let rawData = JSON.parse(localStorage.getItem('gembrow_data') || '[]');
-            rawData = rawData.filter(item => item.type !== 'owner_credentials'); // 删旧
-            rawData.push({ 
-                id: Date.now().toString(), 
-                type: 'owner_credentials', 
-                username: newAdminUser, 
-                password: newAdminPass,
-                createdAt: new Date().toISOString()
-            });
-            localStorage.setItem('gembrow_data', JSON.stringify(rawData));
-            
-            // 更新全局变量
-            ownerCredentials = { username: newAdminUser, password: newAdminPass };
-            allData = allData.filter(item => item.type !== 'owner_credentials');
-            allData.push({
-                id: Date.now().toString(),
-                type: 'owner_credentials',
-                username: newAdminUser,
-                password: newAdminPass
-            });
-
-            // 【第二步】再保存普通设置
-            const currentSettings = getDataByType('discount_settings')[0] || {};
-            const newSettings = {
-                type: 'discount_settings',
-                shop_name: document.getElementById('shopName').value.trim(),
-                ssm_number: document.getElementById('ssmNumber').value.trim(),
-                shop_address: document.getElementById('shopAddress').value.trim(),
-                wa_number: document.getElementById('waNumber').value,
-                // logo_url: document.getElementById('shopLogo')?.value || '', // 防报错处理
-                map_link: document.getElementById('mapLink').value.trim(),
-                fb_link: document.getElementById('fbLink').value.trim(),
-                ig_link: document.getElementById('igLink').value.trim(),
-                tiktok_link: document.getElementById('tiktokLink').value.trim(),
-                enable_rewards: document.getElementById('enableRewards').checked,
-                enable_shop: document.getElementById('enableShop').checked,
-                bronze_points: parseInt(document.getElementById('bronzePoints').value) || 0,
-                bronze_discount: parseInt(document.getElementById('bronzeDiscount').value) || 0,
-                silver_points: parseInt(document.getElementById('silverPoints').value) || 100,
-                silver_discount: parseInt(document.getElementById('silverDiscount').value) || 5,
-                gold_points: parseInt(document.getElementById('goldPoints').value) || 300,
-                gold_discount: parseInt(document.getElementById('goldDiscount').value) || 10,
-                platinum_points: parseInt(document.getElementById('platinumPoints').value) || 600,
-                platinum_discount: parseInt(document.getElementById('platinumDiscount').value) || 15,
-                points_to_rm_rate: parseInt(document.getElementById('pointsToRmRate').value) || 10
-            };
-            
-            if (currentSettings.id) {
-                await updateRecord(currentSettings, newSettings);
-            } else {
-                await createRecord(newSettings);
-            }
-
-            showToast('✅ 设置已保存！新密码已立即生效。');
-            
-            // 重新加载并渲染
-            allData = loadDb();
-            renderApp();
-        } catch (error) {
-            showToast('❌ 保存失败：' + error.message);
-            console.error('保存设置时出错：', error);
+        // 1. 保存普通设置
+        const currentSettings = getDataByType('discount_settings')[0] || {};
+        const newSettings = {
+            type: 'discount_settings',
+            shop_name: document.getElementById('shopName').value.trim(),
+            ssm_number: document.getElementById('ssmNumber').value.trim(),
+            shop_address: document.getElementById('shopAddress').value.trim(),
+            wa_number: document.getElementById('waNumber').value, // 👈 获取输入框里的新号码
+            // logo_url: document.getElementById('shopLogo')?.value || '', 
+            map_link: document.getElementById('mapLink').value.trim(),
+            fb_link: document.getElementById('fbLink').value.trim(),
+            ig_link: document.getElementById('igLink').value.trim(),
+            tiktok_link: document.getElementById('tiktokLink').value.trim(),
+            enable_rewards: document.getElementById('enableRewards').checked,
+            enable_shop: document.getElementById('enableShop').checked,
+            bronze_points: parseInt(document.getElementById('bronzePoints').value) || 0,
+            bronze_discount: parseInt(document.getElementById('bronzeDiscount').value) || 0,
+            silver_points: parseInt(document.getElementById('silverPoints').value) || 100,
+            silver_discount: parseInt(document.getElementById('silverDiscount').value) || 5,
+            gold_points: parseInt(document.getElementById('goldPoints').value) || 300,
+            gold_discount: parseInt(document.getElementById('goldDiscount').value) || 10,
+            platinum_points: parseInt(document.getElementById('platinumPoints').value) || 600,
+            platinum_discount: parseInt(document.getElementById('platinumDiscount').value) || 15,
+            points_to_rm_rate: parseInt(document.getElementById('pointsToRmRate').value) || 10
+        };
+        
+        if (currentSettings.id) {
+            await updateRecord(currentSettings, newSettings);
+        } else {
+            await createRecord(newSettings);
         }
+
+        // 2. 保存管理员账号密码
+        const newAdminUser = document.getElementById('adminUsername').value.trim();
+        const newAdminPass = document.getElementById('adminPassword').value.trim();
+        
+        let rawData = JSON.parse(localStorage.getItem('gembrow_data') || '[]');
+        rawData = rawData.filter(item => item.type !== 'owner_credentials');
+        rawData.push({ 
+            id: Date.now().toString(), 
+            type: 'owner_credentials', 
+            username: newAdminUser, 
+            password: newAdminPass,
+            createdAt: new Date().toISOString()
+        });
+        localStorage.setItem('gembrow_data', JSON.stringify(rawData));
+        
+        // 更新全局内存
+        ownerCredentials = { username: newAdminUser, password: newAdminPass };
+        allData = loadDb(); // 重新加载数据到内存
+
+        // 3. 提示成功 & 刷新界面
+        showToast('✅ 设置已保存！WhatsApp 按钮已更新。');
+        
+        renderApp();        // 刷新页面内容
+        initGlobalWidgets(); // 👈【关键】强制重新生成右下角的按钮！
     });
 
     // === 8. 顾客功能 ===
@@ -3903,55 +3891,37 @@ function importData(input) {
 // 👇 新增：全局挂件 (Google翻译 + WhatsApp悬浮窗)
 // ==========================================
 function initGlobalWidgets() {
-    // 1. ⚔️ 先注入“核弹级”CSS (在Google加载前执行)
-    // 这一步是为了防止它闪现或者占位
-    const style = document.createElement('style');
-    style.innerHTML = `
-        /* 1. 彻底隐藏 Google 顶部横条 (包括 iframe 和占位) */
-        .goog-te-banner-frame.skiptranslate { display: none !important; height: 0 !important; visibility: hidden !important; } 
-        iframe.goog-te-banner-frame { display: none !important; height: 0 !important; visibility: hidden !important; }
-        
-        /* 2. 强制网页顶部不留白，且防止 Google 锁定 Body */
-        body { 
-            top: 0px !important; 
-            position: static !important; 
-            min-height: 100vh !important;
-        }
-        
-        /* 3. 关键：防止 Google 的透明层挡住点击 */
-        #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
-        .VIpgJd-ZVi9od-ORHb-OEVmcd { display: none !important; } /* Google 新版类名 */
+    // 1. 注入 CSS (加了 ID 检查，防止重复注入)
+    if (!document.getElementById('global-widget-styles')) {
+        const style = document.createElement('style');
+        style.id = 'global-widget-styles'; // 给它个身份证
+        style.innerHTML = `
+            /* 彻底隐藏 Google 顶部横条 */
+            .goog-te-banner-frame.skiptranslate { display: none !important; height: 0 !important; visibility: hidden !important; } 
+            iframe.goog-te-banner-frame { display: none !important; height: 0 !important; visibility: hidden !important; }
+            body { top: 0px !important; position: static !important; min-height: 100vh !important; }
+            
+            #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
+            .VIpgJd-ZVi9od-ORHb-OEVmcd { display: none !important; }
 
-        /* 4. 美化左下角的翻译框 */
-        #google_translate_element img { display: none !important; }
-        .goog-te-gadget-simple { 
-            background-color: transparent !important; 
-            border: none !important;
-            padding: 0 !important;
-            font-size: 13px !important;
-            font-family: inherit !important;
-        }
-        .goog-te-menu-value span { 
-            color: #555 !important; 
-            font-weight: bold;
-            border: none !important; 
-        }
-        .goog-te-menu-value span:nth-child(2) { display: none !important; }
-        .goog-te-menu-value span:nth-child(3) { display: none !important; }
-    `;
-    document.head.appendChild(style);
+            #google_translate_element img { display: none !important; }
+            .goog-te-gadget-simple { background-color: transparent !important; border: none !important; padding: 0 !important; font-size: 13px !important; }
+            .goog-te-menu-value span { color: #555 !important; font-weight: bold; border: none !important; }
+            .goog-te-menu-value span:nth-child(2), .goog-te-menu-value span:nth-child(3) { display: none !important; }
+        `;
+        document.head.appendChild(style);
+    }
 
-
-    // 2. 获取设置 & 准备 WhatsApp
+    // 2. WhatsApp 按钮 (每次调用都会重新获取最新设置)
     const settings = getDiscountSettings(); 
+    // ⚠️ 确保这里读取的是最新的 wa_number
     const myPhone = settings.wa_number || "60123456789"; 
     const defaultText = "你好，我想咨询美睫服务 (Hi, I am interested in eyelash services)";
     const waUrl = `https://wa.me/${myPhone}?text=${encodeURIComponent(defaultText)}`;
     
-    // 清理旧按钮
-    if (document.querySelector('.floating-wa-btn')) {
-        document.querySelector('.floating-wa-btn').remove();
-    }
+    // 🔥 关键：先删掉旧的，再加新的
+    const oldBtn = document.querySelector('.floating-wa-btn');
+    if (oldBtn) oldBtn.remove();
 
     const waBtn = document.createElement('a');
     waBtn.href = waUrl;
@@ -3984,13 +3954,11 @@ function initGlobalWidgets() {
 
     document.body.appendChild(waBtn);
 
-
-    // 3. 加载 Google 翻译脚本 (放在最后)
+    // 3. Google 翻译 (只加载一次)
     if (document.getElementById('google_translate_element')) return;
 
     const translateDiv = document.createElement('div');
     translateDiv.id = "google_translate_element";
-    
     translateDiv.style.cssText = `
         position: fixed;
         bottom: 20px;
@@ -4016,9 +3984,7 @@ function initGlobalWidgets() {
     const libScript = document.createElement('script');
     libScript.type = 'text/javascript';
     libScript.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
-    libScript.onerror = function() {
-        translateDiv.style.display = 'none'; 
-    };
+    libScript.onerror = function() { translateDiv.style.display = 'none'; };
     document.body.appendChild(libScript);
 }
 
