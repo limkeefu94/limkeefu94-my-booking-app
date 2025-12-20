@@ -1252,12 +1252,37 @@ function renderSettings(config) {
     const owners = getDataByType('owner_credentials');
     const currentOwner = owners.length > 0 ? owners[0] : ownerCredentials;
 
-    const app = document.getElementById('app');
-    
-    // 这里我们直接返回 HTML 字符串给 renderApp 使用，或者直接操作 app.innerHTML
-    // 为了保持一致性，我们直接修改 app.innerHTML (因为 renderMainApp 里是调用的)
-    // 但注意：renderSettings 在你的代码里是被 renderOwnerView 调用的，它是期望返回一个字符串！
-    // 所以我们保持返回字符串的结构。
+    // 👇 【新增】这里是 Logo 上传的“幕后逻辑”
+    // 我们用 setTimeout 确保 HTML 画出来之后，再给按钮加监听
+    setTimeout(() => {
+        const logoInput = document.getElementById('logoFileInput');
+        const logoUrlInput = document.getElementById('shopLogo');
+        
+        if(logoInput && logoUrlInput) {
+            logoInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        showToast('正在处理图片...');
+                        // 使用你刚才加的 compressImage 函数 (最大宽 300px 足够做 Logo 了)
+                        const compressedBase64 = await compressImage(file, 300, 0.8);
+                        
+                        logoUrlInput.value = compressedBase64;
+                        
+                        // 马上更新预览图给老板看
+                        const previewContainer = document.getElementById('logoPreviewBox');
+                        if(previewContainer) {
+                            previewContainer.innerHTML = `<img src="${compressedBase64}" class="w-full h-full object-contain">`;
+                        }
+                        showToast('Logo 已就绪，记得点底部保存！✅');
+                    } catch (err) {
+                        console.error(err);
+                        showToast('❌ 图片处理失败');
+                    }
+                }
+            });
+        }
+    }, 500); // 延迟 500ms 确保页面渲染完毕
 
     return `
         <div class="pb-20">
@@ -1283,11 +1308,29 @@ function renderSettings(config) {
                                 class="w-full px-3 py-2 rounded border focus:outline-none focus:border-red-500 bg-white font-bold text-gray-700">
                         </div>
                     </div>
-                    <p class="text-xs text-red-400 mt-2">* 修改后系统将自动刷新，下次请使用新账号登录。</p>
+                    <p class="text-xs text-red-400 mt-2">* 修改后点击保存即刻生效，无需重新登录。</p>
                 </div>
 
                 <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
                     <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🏢 店铺与商家信息</h3>
+                    
+                    <div class="mb-6 flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                        <label class="mb-2 text-sm font-bold text-gray-600">店铺 Logo (点击上传)</label>
+                        
+                        <div id="logoPreviewBox" class="w-24 h-24 mb-3 bg-white rounded-full shadow-md flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer"
+                             onclick="document.getElementById('logoFileInput').click()">
+                            ${discountSettings.logo_url ? 
+                                `<img src="${discountSettings.logo_url}" class="w-full h-full object-contain">` : 
+                                `<span class="text-4xl">💎</span>`
+                            }
+                        </div>
+                        
+                        <input type="file" id="logoFileInput" accept="image/*" style="display: none;">
+                        <input type="text" id="shopLogo" value="${discountSettings.logo_url || ''}" placeholder="Logo 数据 (自动生成)" readonly
+                            class="w-full px-3 py-2 rounded border text-xs text-gray-400 bg-gray-100 focus:outline-none mb-2">
+                        <p class="text-xs text-gray-400">点击上面的圆圈即可上传图片</p>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="mb-2">
                             <label class="block mb-1 text-sm font-bold text-gray-600">店铺名称</label>
@@ -2070,8 +2113,8 @@ function attachEventListeners(config, services, bookings, posts) {
             shop_name: document.getElementById('shopName').value.trim(),
             ssm_number: document.getElementById('ssmNumber').value.trim(),
             shop_address: document.getElementById('shopAddress').value.trim(),
-            wa_number: document.getElementById('waNumber').value, // 👈 获取输入框里的新号码
-            // logo_url: document.getElementById('shopLogo')?.value || '', 
+            wa_number: document.getElementById('waNumber').value,
+            logo_url: document.getElementById('shopLogo')?.value || '', 
             map_link: document.getElementById('mapLink').value.trim(),
             fb_link: document.getElementById('fbLink').value.trim(),
             ig_link: document.getElementById('igLink').value.trim(),
