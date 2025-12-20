@@ -2398,20 +2398,20 @@ function showServiceModal(config) {
         if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
     });
 
-    function handleFile(file) {
+    async function handleFile(file) { // 👈 加 async
         if (!file) return;
-        if (file.size > 614400) {
-            alert('❌ 图片太大！请使用 500KB 以下的小图。');
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            serviceImageInput.value = e.target.result;
-            imagePreview.src = e.target.result;
+        try {
+            showToast('图片处理中...');
+            // 👇 服务图可以稍微大一点，最大宽 800px
+            const compressedBase64 = await compressImage(file, 800, 0.7);
+            
+            serviceImageInput.value = compressedBase64;
+            imagePreview.src = compressedBase64;
             imagePreview.style.display = 'block';
             uploadText.style.display = 'none';
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+            showToast('❌ 图片过大或格式不支持');
+        }
     }
 
     document.getElementById('serviceForm').addEventListener('submit', async (e) => {
@@ -2941,19 +2941,17 @@ function showEditProfileModal(config, customer) {
 
     dropZone.addEventListener('click', () => fileInput.click());
 
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', async (e) => { // 👈 加 async
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 512000) { // 限制 500KB
-                alert('图片太大，请上传 500KB 以下的图片');
-                return;
+            try {
+                // 👇 压缩头像：最大宽 300px，质量 0.7
+                const compressedBase64 = await compressImage(file, 300, 0.7);
+                preview.src = compressedBase64; 
+                hiddenInput.value = compressedBase64; 
+            } catch (err) {
+                showToast('❌ 图片上传失败');
             }
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                preview.src = evt.target.result; // 预览
-                hiddenInput.value = evt.target.result; // 存入隐藏框
-            };
-            reader.readAsDataURL(file);
         }
     });
 
@@ -3431,13 +3429,15 @@ function showProductModal(config) {
     };
     imageInput.addEventListener('input', () => updatePreview(imageInput.value));
     dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', async (e) => { // 👈 加 async
         const file = e.target.files[0];
         if (file) {
-             if (file.size > 307200) { alert('图片太大'); return; }
-             const reader = new FileReader();
-             reader.onload = (evt) => { imageInput.value = evt.target.result; updatePreview(evt.target.result); };
-             reader.readAsDataURL(file);
+             try {
+                 // 👇 商品图，最大宽 800px
+                 const compressedBase64 = await compressImage(file, 800, 0.7);
+                 imageInput.value = compressedBase64; 
+                 updatePreview(compressedBase64);
+             } catch (err) { console.error(err); }
         }
     });
 
@@ -3795,13 +3795,15 @@ function showPostModal(config) {
     };
     imageInput.addEventListener('input', () => updatePreview(imageInput.value));
     dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
-             if (file.size > 307200) { alert('图片太大'); return; }
-             const reader = new FileReader();
-             reader.onload = (evt) => { imageInput.value = evt.target.result; updatePreview(evt.target.result); };
-             reader.readAsDataURL(file);
+             try {
+                 // 👇 动态图，最大宽 800px
+                 const compressedBase64 = await compressImage(file, 800, 0.7);
+                 imageInput.value = compressedBase64; 
+                 updatePreview(compressedBase64);
+             } catch (err) { console.error(err); }
         }
     });
 
@@ -3987,6 +3989,43 @@ function initGlobalWidgets() {
     libScript.onerror = function() { translateDiv.style.display = 'none'; };
     document.body.appendChild(libScript);
 }
+// ==========================================
+// 👇 新增：图片自动压缩工具 (把大图压成小图)
+// ==========================================
+function compressImage(file, maxWidth = 800, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                // 1. 计算新的宽高 (保持比例)
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
 
+                // 2. 用 Canvas 重新画图 (相当于压缩)
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // 3. 导出为 Base64 (JPEG 格式，70% 质量)
+                // 这样生成的字符串会比原来短很多，数据库就不会爆了
+                const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                resolve(dataUrl);
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+}
 initApp();
 initGlobalWidgets();
