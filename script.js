@@ -487,8 +487,9 @@ function renderLoginPage() {
         : `background: linear-gradient(135deg, #fff1eb 0%, #ace0f9 100%);`;
 
     // 决定显示什么 Logo
-    const logoContent = settings.logo_url 
-        ? `<img src="${settings.logo_url}" class="w-full h-full object-contain filter drop-shadow-md">` 
+    const displayLogo = settings.logo_login || settings.logo_url;
+    const logoContent = displayLogo
+        ? `<img src="${displayLogo}" class="w-full h-full object-contain filter drop-shadow-md">` 
         : `<span class="text-5xl">💎</span>`;
 
     app.innerHTML = `
@@ -672,7 +673,7 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
         <div class="min-h-full">
             <header style="background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; border-bottom: 3px solid ${config.primary_action_color};">
                 <div class="max-w-7xl mx-auto px-6 py-2 flex justify-between items-center">
-                    <img src="${settings.logo_url || './assets/header_logo.png'}" alt="${config.app_title}" class="header-logo-img" style="height: 40px; object-fit: contain;">
+                    <img src="${settings.logo_header || settings.logo_url || './assets/header_logo.png'}" alt="${config.app_title}" class="header-logo-img" style="height: 40px; object-fit: contain;">
                     <button id="menuBtn" class="px-4 py-2 rounded-lg" style="border: 2px solid ${config.primary_action_color}; background: ${config.primary_action_color}22; color: ${config.primary_action_color}; font-family: Lato, sans-serif;">
                         ☰ 菜单
                     </button>
@@ -691,8 +692,17 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                         ` : `
                             <button id="viewServices" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'services' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">💅 服务预约</button>
                             ${loggedInCustomerName ? `
-                                <button id="viewMyBookings" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'mybookings' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">📅 我的预约</button>
-                                <button id="viewProfile" class="w-full text-left px-4 py-3 rounded-lg mb-4" style="font-family: Lato, sans-serif; background: ${currentView === 'profile' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">👤 我的账户</button>
+                            <button id="viewMyBookings" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'mybookings' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
+                              📅 我的预约 (待服务)
+                            </button>
+    
+                            <button id="viewHistory" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'history' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
+                              📜 历史与账单
+                            </button>
+    
+                            <button id="viewProfile" class="w-full text-left px-4 py-3 rounded-lg mb-4" style="font-family: Lato, sans-serif; background: ${currentView === 'profile' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
+                              👤 我的账户
+                            </button>
                             ` : ''}
                         `}
                         <button class="logout-btn w-full px-4 py-3 rounded-lg" style="font-family: Lato, sans-serif; background: ${config.secondary_action_color}; color: #ffffff;">
@@ -787,6 +797,9 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                             📅 预约管理
                         </h2>
                         <div class="flex gap-2">
+                             <button id="blockTimeBtn" class="px-3 py-2 rounded-lg bg-gray-800 text-white text-sm shadow-md">
+                               ⛔ 锁定/休息
+                            </button>
                              <select onchange="filterStatus = this.value; renderApp()" class="px-2 py-2 rounded-lg border-2 text-sm cursor-pointer hover:border-gray-400 transition-colors">
                                 <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>待确认</option>
                                 <option value="all" ${filterStatus === 'all' ? 'selected' : ''}>全部预约</option>
@@ -806,28 +819,35 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                     ` : `
                         <div class="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                             ${filteredBookings.map(booking => `
-                                <div style="background: rgba(255, 255, 255, 0.95); padding: 20px; border-radius: 12px; border-left: 4px solid ${booking.status === 'pending' ? config.secondary_action_color : '#e5e7eb'}; shadow-sm transition-all hover:shadow-md">
-                                    <div class="flex justify-between items-start">
-                                        <div>
-                                            <h3 style="font-weight: 700; color: ${config.text_color};">${booking.customerName}</h3>
-                                            <p class="text-sm opacity-80">📞 ${booking.customerPhone}</p>
-                                            <p class="font-bold mt-1" style="color: ${config.primary_action_color};">💅 ${booking.serviceName}</p>
-                                            <p class="text-sm mt-1">📅 ${booking.appointmentDate} ${booking.appointmentTime}</p>
-                                        </div>
-                                        
-                                        <div class="flex flex-col gap-2 items-end">
+                                   <div style="background: rgba(255, 255, 255, 0.95); padding: 20px; border-radius: 12px; border-left: 4px solid ${booking.status === 'pending' ? config.secondary_action_color : '#e5e7eb'}; shadow-sm transition-all hover:shadow-md">
+                                      <div class="flex justify-between items-start">
+                                         <div>
+                                             <h3 style="font-weight: 700; color: ${config.text_color};">${booking.customerName}</h3>
+                                             <p class="text-sm opacity-80">📞 ${booking.customerPhone}</p>
+                                             <p class="font-bold mt-1" style="color: ${config.primary_action_color};">💅 ${booking.serviceName}</p>
+                                             <p class="text-sm mt-1">📅 ${booking.appointmentDate} ${booking.appointmentTime}</p>
+                                             ${booking.duration ? `<p class="text-xs text-gray-400">⏱️ ${booking.duration} min</p>` : ''}
+                                         </div>
+            
+                                         <div class="flex flex-col gap-2 items-end">
                                             <span style="font-size: 12px; padding: 2px 8px; rounded-full bg-gray-100">
                                                 ${booking.status === 'pending' ? '待确认' : booking.status === 'completed' ? '已完成' : '已取消'}
                                             </span>
+
+                                            <button onclick="showCashierModal(elementSdk.config, getDataByType('booking').find(b => b.id === '${booking.id}'))" 
+                                                style="background: #3b82f6; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);">
+                                                💰 收银/发单
+                                            </button>
+
                                             ${booking.status === 'pending' ? `
-                                                <div class="flex gap-1 mt-2">
+                                                <div class="flex gap-1 mt-1">
                                                     <button class="completeBookingBtn" data-id="${booking.id}" style="background: #10b981; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px;">完成</button>
                                                     <button class="cancelBookingBtn" data-id="${booking.id}" style="background: #ef4444; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px;">取消</button>
                                                 </div>
                                             ` : `
-                                                <div class="mt-2">
+                                                <div class="mt-1">
                                                     <button class="revertBookingBtn" data-id="${booking.id}" style="border: 1px solid #9ca3af; color: #4b5563; padding: 4px 8px; border-radius: 6px; font-size: 12px; background: white;">
-                                                        ↩️ 恢复待办
+                                                        ↩️ 恢复
                                                     </button>
                                                 </div>
                                             `}
@@ -1247,42 +1267,8 @@ function renderCustomersManagement(config, customers, bookings) {
 // ==========================================
 function renderSettings(config) {
     const discountSettings = getDiscountSettings();
-    
-    // 获取当前管理员账号
     const owners = getDataByType('owner_credentials');
     const currentOwner = owners.length > 0 ? owners[0] : ownerCredentials;
-
-    // 👇 【新增】这里是 Logo 上传的“幕后逻辑”
-    // 我们用 setTimeout 确保 HTML 画出来之后，再给按钮加监听
-    setTimeout(() => {
-        const logoInput = document.getElementById('logoFileInput');
-        const logoUrlInput = document.getElementById('shopLogo');
-        
-        if(logoInput && logoUrlInput) {
-            logoInput.addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    try {
-                        showToast('正在处理图片...');
-                        // 使用你刚才加的 compressImage 函数 (最大宽 300px 足够做 Logo 了)
-                        const compressedBase64 = await compressImage(file, 300, 0.8);
-                        
-                        logoUrlInput.value = compressedBase64;
-                        
-                        // 马上更新预览图给老板看
-                        const previewContainer = document.getElementById('logoPreviewBox');
-                        if(previewContainer) {
-                            previewContainer.innerHTML = `<img src="${compressedBase64}" class="w-full h-full object-contain">`;
-                        }
-                        showToast('Logo 已就绪，记得点底部保存！✅');
-                    } catch (err) {
-                        console.error(err);
-                        showToast('❌ 图片处理失败');
-                    }
-                }
-            });
-        }
-    }, 500); // 延迟 500ms 确保页面渲染完毕
 
     return `
         <div class="pb-20">
@@ -1308,161 +1294,189 @@ function renderSettings(config) {
                                 class="w-full px-3 py-2 rounded border focus:outline-none focus:border-red-500 bg-white font-bold text-gray-700">
                         </div>
                     </div>
-                    <p class="text-xs text-red-400 mt-2">* 修改后点击保存即刻生效，无需重新登录。</p>
+                    <p class="text-xs text-red-400 mt-2">* 修改后系统将自动生效，下次请使用新账号登录。</p>
+                </div>
+
+                <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
+                    <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🖼️ 品牌 Logo 设置</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
+                            <label class="mb-2 text-sm font-bold text-gray-600">🏠 登录页 Logo (大图)</label>
+                            
+                            <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
+                                 onclick="document.getElementById('logoLoginInput').click()">
+                                
+                                <img id="loginLogoPreviewImg" 
+                                     src="${discountSettings.logo_login || discountSettings.logo_url || ''}" 
+                                     class="w-full h-full object-contain"
+                                     style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'block' : 'none'}">
+                                
+                                <span id="loginLogoPlaceholder" style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
+                                
+                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
+                                    <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
+                                </div>
+                            </div>
+
+                            <input type="file" id="logoLoginInput" accept="image/*" style="display: none;">
+                            <input type="hidden" id="logoLoginUrl" value="${discountSettings.logo_login || discountSettings.logo_url || ''}">
+                            <p class="text-xs text-gray-400">点击图片上传</p>
+                        </div>
+
+                        <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
+                            <label class="mb-2 text-sm font-bold text-gray-600">🔝 顶部菜单 Logo (小图)</label>
+                            
+                            <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
+                                 onclick="document.getElementById('logoHeaderInput').click()">
+                                
+                                <img id="headerLogoPreviewImg" 
+                                     src="${discountSettings.logo_header || ''}" 
+                                     class="w-full h-full object-contain"
+                                     style="display: ${discountSettings.logo_header ? 'block' : 'none'}">
+                                     
+                                <span id="headerLogoPlaceholder" style="display: ${discountSettings.logo_header ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
+
+                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
+                                    <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
+                                </div>
+                            </div>
+
+                            <input type="file" id="logoHeaderInput" accept="image/*" style="display: none;">
+                            <input type="hidden" id="logoHeaderUrl" value="${discountSettings.logo_header || ''}">
+                            <p class="text-xs text-gray-400">点击图片上传</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
                     <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🏢 店铺与商家信息</h3>
+                    <div class="mb-4">
+                        <label class="block mb-1 text-sm font-bold text-gray-600">店铺名称</label>
+                        <input type="text" id="shopName" value="${discountSettings.shop_name || config.app_title}" class="w-full px-3 py-2 rounded border">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block mb-1 text-sm font-bold text-green-600">WhatsApp (60xxxx)</label>
+                        <input type="text" id="waNumber" value="${discountSettings.wa_number || ''}" class="w-full px-3 py-2 rounded border border-green-200 bg-green-50">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block mb-1 text-sm font-bold text-gray-600">SSM 注册号</label>
+                        <input type="text" id="ssmNumber" value="${discountSettings.ssm_number || ''}" class="w-full px-3 py-2 rounded border">
+                    </div>
+                    <input type="hidden" id="shopAddress" value="${discountSettings.shop_address || ''}">
+                    <input type="hidden" id="mapLink" value="${discountSettings.map_link || ''}">
+                    <input type="hidden" id="fbLink" value="${discountSettings.fb_link || ''}">
+                    <input type="hidden" id="igLink" value="${discountSettings.ig_link || ''}">
+                    <input type="hidden" id="tiktokLink" value="${discountSettings.tiktok_link || ''}">
+                </div>
+
+                <div class="mb-6 p-6 rounded-2xl bg-blue-50 border-2 border-blue-100 shadow-sm">
+                    <h3 class="mb-4 font-bold text-lg text-blue-800 border-b border-blue-200 pb-2">🧾 财务与税务 (SST)</h3>
                     
-                    <div class="mb-6 flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                        <label class="mb-2 text-sm font-bold text-gray-600">店铺 Logo (点击上传)</label>
-                        
-                        <div id="logoPreviewBox" class="w-24 h-24 mb-3 bg-white rounded-full shadow-md flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer"
-                             onclick="document.getElementById('logoFileInput').click()">
-                            ${discountSettings.logo_url ? 
-                                `<img src="${discountSettings.logo_url}" class="w-full h-full object-contain">` : 
-                                `<span class="text-4xl">💎</span>`
-                            }
-                        </div>
-                        
-                        <input type="file" id="logoFileInput" accept="image/*" style="display: none;">
-                        <input type="text" id="shopLogo" value="${discountSettings.logo_url || ''}" placeholder="Logo 数据 (自动生成)" readonly
-                            class="w-full px-3 py-2 rounded border text-xs text-gray-400 bg-gray-100 focus:outline-none mb-2">
-                        <p class="text-xs text-gray-400">点击上面的圆圈即可上传图片</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="mb-2">
-                            <label class="block mb-1 text-sm font-bold text-gray-600">店铺名称</label>
-                            <input type="text" id="shopName" value="${discountSettings.shop_name || config.app_title}" 
-                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
-                        </div>
-                        <div class="col-span-1 md:col-span-2 mb-4">
-                            <label class="block mb-1 text-sm font-bold text-green-600">WhatsApp 联系号码 (不要加 + 号)</label>
-                            <input type="text" inputmode="numeric" id="waNumber" value="${discountSettings.wa_number || '60123456789'}" placeholder="601xxxxxxx" oninput="this.value = this.value.replace(/[^0-9]/g, '')"
-                                class="w-full px-3 py-2 rounded border border-green-200 focus:outline-none focus:border-green-500 bg-green-50">
-                        </div>
-                        <div class="mb-2">
-                            <label class="block mb-1 text-sm font-bold text-gray-600">商业注册号 (SSM No.)</label>
-                            <input type="text" id="ssmNumber" value="${discountSettings.ssm_number || ''}" placeholder="e.g. 202403XXXXXX"
-                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
-                        </div>
-                        <div class="col-span-1 md:col-span-2 mb-2">
-                            <label class="block mb-1 text-sm font-bold text-gray-600">店铺完整地址</label>
-                            <input type="text" id="shopAddress" value="${discountSettings.shop_address || ''}" placeholder="输入店铺地址..."
-                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
-                        </div>
-                        <div class="col-span-1 md:col-span-2 mb-2">
-                            <label class="block mb-1 text-sm font-bold text-gray-600">导航链接 (Google Maps/Waze)</label>
-                            <input type="text" id="mapLink" value="${discountSettings.map_link || ''}" placeholder="粘贴地图分享链接..."
-                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
-                        </div>
-                    </div>
-
-                    <h4 class="mt-6 mb-4 font-bold text-sm text-gray-500 uppercase tracking-wider">社交媒体链接</h4>
-                    <div class="space-y-3">
-                        <div class="flex items-center gap-3">
-                            <span class="w-16 text-sm font-bold">FB</span>
-                            <input type="text" id="fbLink" value="${discountSettings.fb_link || ''}" placeholder="Facebook Link" class="flex-1 px-3 py-2 rounded border">
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="w-16 text-sm font-bold">IG</span>
-                            <input type="text" id="igLink" value="${discountSettings.ig_link || ''}" placeholder="Instagram Link" class="flex-1 px-3 py-2 rounded border">
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="w-16 text-sm font-bold">TikTok</span>
-                            <input type="text" id="tiktokLink" value="${discountSettings.tiktok_link || ''}" placeholder="TikTok Link" class="flex-1 px-3 py-2 rounded border">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
-                    <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">⚙️ 积分与规则</h3>
-                    <div class="mb-4 flex items-center justify-between">
-                        <span class="font-bold text-gray-700">启用积分功能</span>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="font-bold text-gray-700">启用 SST 税务计算</span>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="enableRewards" class="sr-only peer" ${discountSettings.enable_rewards !== false ? 'checked' : ''}>
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-500"></div>
+                            <input type="checkbox" id="enableSST" class="sr-only peer" ${discountSettings.enable_sst ? 'checked' : ''}>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                         </label>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">消费多少积1分 (RM)</label>
-                            <input type="number" id="rmToPointsRate" value="${discountSettings.rm_to_points_rate || 1}" min="1" 
-                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            <label class="block mb-1 text-sm font-bold text-gray-600">SST 税率 (%)</label>
+                            <input type="number" id="sstRate" value="${discountSettings.sst_rate || 6}" placeholder="6"
+                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">多少积分抵扣 RM1</label>
-                            <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}" min="1" 
-                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-pink-500">
+                            <label class="block mb-1 text-sm font-bold text-gray-600">SST 注册号 (ID)</label>
+                            <input type="text" id="sstID" value="${discountSettings.sst_id || ''}" placeholder="W10-xxxx"
+                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-blue-500">
                         </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-sm text-gray-600">在收据上显示 SST 金额?</span>
+                        <input type="checkbox" id="showSSTOnReceipt" ${discountSettings.show_sst_on_receipt ? 'checked' : ''} class="w-5 h-5 accent-blue-600">
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">* 采用【内扣模式】：标价已含税，系统自动从总额中计算税金。</p>
+                </div>
+
+                <div class="mb-6 p-6 rounded-2xl bg-purple-50 border-2 border-purple-100 shadow-sm">
+                    <h3 class="mb-4 font-bold text-lg text-purple-800 border-b border-purple-200 pb-2">⭐ 积分与会员等级</h3>
+                    
+                    <div class="flex items-center justify-between mb-6">
+                        <span class="font-bold text-gray-700">启用积分系统</span>
+                        <input type="checkbox" id="enableRewards" ${discountSettings.enable_rewards !== false ? 'checked' : ''} class="w-5 h-5 accent-purple-500">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block mb-1 text-xs font-bold text-purple-600">铜牌会员积分</label>
+                            <input type="number" id="bronzePoints" value="${discountSettings.bronze_points || 0}" 
+                                class="w-full px-3 py-2 rounded border focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-xs font-bold text-purple-600">铜牌会员折扣 (%)</label>
+                            <input type="number" id="bronzeDiscount" value="${discountSettings.bronze_discount || 0}" 
+                                class="w-full px-3 py-2 rounded border focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-xs font-bold text-gray-600">银牌会员积分</label>
+                            <input type="number" id="silverPoints" value="${discountSettings.silver_points || 100}" 
+                                class="w-full px-3 py-2 rounded border focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-xs font-bold text-gray-600">银牌会员折扣 (%)</label>
+                            <input type="number" id="silverDiscount" value="${discountSettings.silver_discount || 5}" 
+                                class="w-full px-3 py-2 rounded border focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-xs font-bold text-yellow-600">金牌会员积分</label>
+                            <input type="number" id="goldPoints" value="${discountSettings.gold_points || 300}" 
+                                class="w-full px-3 py-2 rounded border focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-xs font-bold text-yellow-600">金牌会员折扣 (%)</label>
+                            <input type="number" id="goldDiscount" value="${discountSettings.gold_discount || 10}" 
+                                class="w-full px-3 py-2 rounded border focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-xs font-bold text-cyan-600">白金会员积分</label>
+                            <input type="number" id="platinumPoints" value="${discountSettings.platinum_points || 600}" 
+                                class="w-full px-3 py-2 rounded border focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-xs font-bold text-cyan-600">白金会员折扣 (%)</label>
+                            <input type="number" id="platinumDiscount" value="${discountSettings.platinum_discount || 15}" 
+                                class="w-full px-3 py-2 rounded border focus:border-purple-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block mb-1 text-xs font-bold text-gray-600">积分兑换比 (10 积分 = ? RM)</label>
+                        <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}" 
+                            class="w-full px-3 py-2 rounded border focus:border-purple-500">
                     </div>
                 </div>
 
-                <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
-                    <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">💎 会员折扣设置</h3>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">铜牌折扣(%)</label>
-                            <input type="number" id="bronzeDiscount" value="${discountSettings.bronze_discount || 0}" min="0" max="100" class="w-full px-3 py-2 rounded border">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">铜牌积分</label>
-                            <input type="number" id="bronzePoints" value="${discountSettings.bronze_points || 0}" min="0" class="w-full px-3 py-2 rounded border">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">银牌折扣(%)</label>
-                            <input type="number" id="silverDiscount" value="${discountSettings.silver_discount || 5}" min="0" max="100" class="w-full px-3 py-2 rounded border">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">银牌积分</label>
-                            <input type="number" id="silverPoints" value="${discountSettings.silver_points || 100}" min="0" class="w-full px-3 py-2 rounded border">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">金牌折扣(%)</label>
-                            <input type="number" id="goldDiscount" value="${discountSettings.gold_discount || 10}" min="0" max="100" class="w-full px-3 py-2 rounded border">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">金牌积分</label>
-                            <input type="number" id="goldPoints" value="${discountSettings.gold_points || 300}" min="0" class="w-full px-3 py-2 rounded border">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">白金折扣(%)</label>
-                            <input type="number" id="platinumDiscount" value="${discountSettings.platinum_discount || 15}" min="0" max="100" class="w-full px-3 py-2 rounded border">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">白金积分</label>
-                            <input type="number" id="platinumPoints" value="${discountSettings.platinum_points || 600}" min="0" class="w-full px-3 py-2 rounded border">
-                        </div>
+                <div class="mb-6 p-6 rounded-2xl bg-green-50 border-2 border-green-100 shadow-sm">
+                    <h3 class="mb-4 font-bold text-lg text-green-800 border-b border-green-200 pb-2">🛍️ 商品管理</h3>
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold">启用商品功能</span>
+                        <input type="checkbox" id="enableShop" ${discountSettings.enable_shop !== false ? 'checked' : ''} class="w-5 h-5 accent-green-500">
                     </div>
                 </div>
 
-                <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
-                    <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🛒 商品功能</h3>
-                    <div class="mb-4 flex items-center justify-between">
-                        <span class="font-bold text-gray-700">启用商品销售功能</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="enableShop" class="sr-only peer" ${discountSettings.enable_shop !== false ? 'checked' : ''}>
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-500"></div>
-                        </label>
-                    </div>
-                </div>
-
-                <button type="submit" class="w-full py-4 rounded-xl font-bold text-white shadow-lg mb-8 transform active:scale-95 transition-transform"
-                    style="background: ${config.primary_action_color};">
-                    保存所有设置
+                <button type="submit" class="w-full py-4 rounded-xl font-bold text-white shadow-lg mb-8" style="background: ${config.primary_action_color};">
+                    💾 保存所有设置
                 </button>
             </form>
 
             <div class="mb-12 p-6 rounded-2xl bg-gray-100 border-2 border-dashed border-gray-300">
-                <h3 class="mb-2 font-bold text-gray-700">💾 数据安全备份</h3>
+                <h3 class="mb-2 font-bold text-gray-700">💾 数据备份</h3>
                 <div class="flex gap-4">
-                    <button type="button" onclick="exportData()" class="flex-1 py-3 rounded-lg font-bold text-white bg-gray-600 hover:bg-gray-700 flex items-center justify-center gap-2">
-                        <span>⬇️</span> 导出备份
-                    </button>
-                    <button type="button" onclick="document.getElementById('importFile').click()" class="flex-1 py-3 rounded-lg font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 flex items-center justify-center gap-2">
-                        <span>⬆️</span> 导入恢复
-                    </button>
+                    <button type="button" onclick="exportData()" class="flex-1 py-3 rounded-lg bg-gray-600 text-white font-bold">⬇️ 导出备份</button>
+                    <button type="button" onclick="document.getElementById('importFile').click()" class="flex-1 py-3 rounded-lg bg-white border font-bold">⬆️ 导入恢复</button>
                     <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(this)">
                 </div>
             </div>
@@ -1473,6 +1487,8 @@ function renderSettings(config) {
 function renderCustomerView(config, services, bookings, posts) {
     if (currentView === 'mybookings' && loggedInCustomerName) {
         return renderMyBookings(config, bookings);
+    } else if (currentView === 'history' && loggedInCustomerName) { // ✅ 新增这行
+        return renderHistoryPage(config);
     } else if (currentView === 'profile' && loggedInCustomerName) {
         return renderProfile(config, bookings);
     }
@@ -1642,92 +1658,84 @@ function renderCustomerView(config, services, bookings, posts) {
     `;
 }
 
+// ==========================================
+// 👇 修复版：我的预约 (只显示待服务，历史去隔壁看)
+// ==========================================
 function renderMyBookings(config, bookings) {
-    // 1. 获取该顾客的订单
+    // --- 1. 处理预约 (只看 Pending) ---
+    const myPendingBookings = bookings.filter(b => 
+        b.customerName === loggedInCustomerName && 
+        b.status === 'pending' // 只显示等待中的
+    ).sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
+
+    // --- 2. 处理订单 (只看 Pending) ---
     const allOrders = getDataByType('order');
-    const myOrders = allOrders.filter(o => o.customerName === loggedInCustomerName);
-    
-    // 2. 排序：最新的在上面
-    const sortedBookings = bookings.sort((a, b) => new Date(b.appointmentDate) - new Date(a.appointmentDate));
-    const sortedOrders = myOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const myPendingOrders = allOrders.filter(o => 
+        o.customerName === loggedInCustomerName && 
+        o.status === 'pending' // 只显示待处理的
+    ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return `
-        <div class="max-w-md mx-auto">
+        <div class="max-w-md mx-auto animate-fade-in pb-20">
             <h2 class="text-2xl font-bold mb-6 text-center" style="color: ${config.primary_action_color};">
-                👤 个人中心
+                ⏳ 我的待办事项
             </h2>
 
             <div class="mb-8">
-                <h3 class="text-lg font-bold mb-4 border-b pb-2 flex justify-between items-center">
-                    <span>📅 我的预约记录</span>
-                    <span class="text-sm bg-gray-100 px-2 py-1 rounded-full text-gray-500">${bookings.length}</span>
+                <h3 class="font-bold text-lg mb-4 flex items-center gap-2 opacity-80">
+                    <span>📅 预约服务</span>
+                    ${myPendingBookings.length > 0 ? `<span class="bg-pink-100 text-pink-600 text-xs px-2 py-1 rounded-full">${myPendingBookings.length}</span>` : ''}
                 </h3>
 
-                ${bookings.length === 0 ? `
-                    <p class="text-center text-gray-400 py-4">您还没有预约过服务哦</p>
+                ${myPendingBookings.length === 0 ? `
+                    <div class="text-center py-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 opacity-60">
+                        <p class="text-sm text-gray-500">没有等待中的预约</p>
+                        <button onclick="document.getElementById('viewServices').click()" class="text-pink-500 text-xs font-bold mt-2 hover:underline">去预约 &rarr;</button>
+                    </div>
                 ` : `
                     <div class="space-y-4">
-                        ${sortedBookings.map(booking => {
-                            // 检查是否已评价
-                            const hasRated = getDataByType('rating').some(r => r.bookingId === booking.id);
-                            
-                            return `
-                            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        ${myPendingBookings.map(booking => `
+                            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 relative overflow-hidden group" 
+                                style="border-color: ${config.secondary_action_color};">
                                 <div class="flex justify-between items-start mb-2">
-                                    <h4 class="font-bold text-lg" style="color: ${config.primary_action_color};">${booking.serviceName}</h4>
-                                    <span class="text-xs px-2 py-1 rounded-full ${
-                                        booking.status === 'completed' ? 'bg-green-100 text-green-600' : 
-                                        booking.status === 'cancelled' ? 'bg-red-100 text-red-600' : 
-                                        'bg-yellow-100 text-yellow-600'
-                                    }">
-                                        ${booking.status === 'pending' ? '待确认' : booking.status === 'completed' ? '已完成' : '已取消'}
-                                    </span>
+                                    <h4 class="font-bold text-gray-800">${booking.serviceName}</h4>
+                                    <span class="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 font-bold">等待到店</span>
                                 </div>
-                                <p class="text-gray-600 text-sm mb-1">📅 ${booking.appointmentDate} ${booking.appointmentTime}</p>
-                                <p class="font-bold text-gray-800">RM${booking.totalAmount}</p>
-                                
-                                ${booking.status === 'pending' ? `
-                                    <button class="cancelBookingBtn w-full mt-3 py-2 rounded-lg text-sm border border-red-200 text-red-500 hover:bg-red-50" data-id="${booking.id}">
-                                        取消预约
+                                <p class="text-gray-600 text-sm mb-3">
+                                    📅 ${booking.appointmentDate} <span class="ml-2 font-bold text-gray-800">${booking.appointmentTime}</span>
+                                </p>
+                                <div class="flex justify-between items-center border-t border-gray-100 pt-3">
+                                    <span class="font-bold text-pink-600">RM${booking.totalAmount}</span>
+                                    <button class="cancelBookingBtn px-3 py-1 rounded-lg text-xs border border-red-200 text-red-500 hover:bg-red-50 font-bold" data-id="${booking.id}">
+                                        取消
                                     </button>
-                                ` : ''}
-
-                                ${booking.status === 'completed' && !hasRated ? `
-                                    <button class="rateBookingBtn w-full mt-3 py-2 rounded-lg text-sm font-bold text-white shadow-sm hover:opacity-90" 
-                                        data-id="${booking.id}"
-                                        style="background: ${config.secondary_action_color};">
-                                        ⭐ 去评价
-                                    </button>
-                                ` : ''}
-                                
-                                ${booking.status === 'completed' && hasRated ? `
-                                    <div class="mt-3 text-center text-xs text-gray-400">已评价 ✅</div>
-                                ` : ''}
+                                </div>
                             </div>
-                        `;
-                        }).join('')}
+                        `).join('')}
                     </div>
                 `}
             </div>
 
-            <div class="mb-12">
-                <h3 class="text-lg font-bold mb-4 border-b pb-2 flex justify-between items-center">
-                    <span>📦 我的商品订单</span>
-                    <span class="text-sm bg-gray-100 px-2 py-1 rounded-full text-gray-500">${myOrders.length}</span>
+            <div>
+                <h3 class="font-bold text-lg mb-4 flex items-center gap-2 opacity-80">
+                    <span>📦 商品订单</span>
+                    ${myPendingOrders.length > 0 ? `<span class="bg-blue-100 text-blue-600 text-xs px-2 py-1 rounded-full">${myPendingOrders.length}</span>` : ''}
                 </h3>
 
-                ${myOrders.length === 0 ? `
-                    <p class="text-center text-gray-400 py-4">您还没有购买过商品</p>
+                ${myPendingOrders.length === 0 ? `
+                    <div class="text-center py-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 opacity-60">
+                        <p class="text-sm text-gray-500">没有等待中的订单</p>
+                    </div>
                 ` : `
                     <div class="space-y-4">
-                        ${sortedOrders.map(order => `
-                            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                                <div class="flex justify-between items-start mb-3">
+                        ${myPendingOrders.map(order => `
+                            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 relative overflow-hidden" 
+                                style="border-color: #3b82f6;"> <div class="flex justify-between items-start mb-3">
                                     <span class="text-xs text-gray-400">
-                                        ${new Date(order.createdAt).toLocaleString('zh-CN')}
+                                        下单: ${new Date(order.createdAt).toLocaleString('zh-CN', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}
                                     </span>
-                                    <span class="text-xs px-2 py-1 rounded-full ${order.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-600'}">
-                                        ${order.status === 'completed' ? '已发货/完成' : '处理中'}
+                                    <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-600 font-bold">
+                                        处理中 / 待发货
                                     </span>
                                 </div>
 
@@ -1740,18 +1748,28 @@ function renderMyBookings(config, bookings) {
                                     `).join('')}
                                     <div class="border-t border-gray-200 mt-2 pt-2 flex justify-between font-bold text-gray-800">
                                         <span>总计</span>
-                                        <span style="color: ${config.secondary_action_color};">RM${order.totalAmount}</span>
+                                        <span class="text-blue-600">RM${order.totalAmount}</span>
                                     </div>
+                                </div>
+
+                                <div class="text-right">
+                                     <button class="cancelOrderBtn px-3 py-1 rounded-lg text-xs border border-red-200 text-red-500 hover:bg-red-50 font-bold" data-id="${order.id}">
+                                        取消订单
+                                    </button>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
                 `}
             </div>
-
-            <button class="logout-btn w-full py-3 rounded-lg border-2 border-gray-300 text-gray-500 font-bold mb-8">
-                退出登录
-            </button>
+            
+            <div class="mt-8 text-center">
+                <p class="text-xs text-gray-400">想查看已完成的历史记录？</p>
+                
+                <button onclick="currentView = 'history'; renderApp()" class="text-sm font-bold text-pink-500 underline mt-1 hover:text-pink-600">
+                    📜 去查看历史与账单
+                </button>
+            </div>
         </div>
     `;
 }
@@ -1958,10 +1976,27 @@ function attachEventListeners(config, services, bookings, posts) {
         showMenu = false;
         renderApp();
     });
+
+    document.getElementById('viewHistory')?.addEventListener('click', () => {
+        currentView = 'history';
+        showMenu = false;
+        renderApp();
+    });
+
     document.getElementById('viewProfile')?.addEventListener('click', () => {
         currentView = 'profile';
         showMenu = false;
         renderApp();
+    });
+
+    // === 休息时间 ===
+    document.getElementById('blockTimeBtn')?.addEventListener('click', () => {
+        // 复用 showBookingModal，但这次是老板给自己“占位”
+        // 我们传入一个特殊的 serviceName 叫 "⛔ 休息/锁定"
+        // 价格 0，时长可以让老板自己填 (这里简化为默认 60分钟，老板可以在弹窗里改)
+        // 更好的做法是专门写个 showBlockTimeModal，但为了省事，我们可以直接伪造一个服务
+        
+        showBlockTimeModal(config); // 👇 下面有这个新函数
     });
 
     // === 1. 全局导航/登录 ===
@@ -2102,66 +2137,127 @@ function attachEventListeners(config, services, bookings, posts) {
         });
     });
 
+    // === 6. Logo 上传事件 ===
+    document.getElementById('logoLoginInput')?.addEventListener('change', function(e) {
+        if (e.target.files[0]) {
+            compressImage(e.target.files[0], 800, 0.7).then(dataUrl => {
+                document.getElementById('logoLoginUrl').value = dataUrl;
+            });
+        }
+    });
+
+    document.getElementById('logoLoginInput')?.addEventListener('change', function(e) {
+        if (e.target.files[0]) {
+            showToast('📷 正在处理 Logo...');
+            compressImage(e.target.files[0], 800, 0.7).then(dataUrl => {
+                // 1. 存入隐藏的 value 供保存使用
+                document.getElementById('logoLoginUrl').value = dataUrl;
+                
+                // 2. 立即更新界面预览
+                const img = document.getElementById('loginLogoPreviewImg');
+                const ph = document.getElementById('loginLogoPlaceholder');
+                if (img) { img.src = dataUrl; img.style.display = 'block'; }
+                if (ph) { ph.style.display = 'none'; }
+                
+                showToast('✅ 登录页 Logo 已就绪 (记得点保存)');
+            });
+        }
+    });
+
+    document.getElementById('logoHeaderInput')?.addEventListener('change', function(e) {
+        if (e.target.files[0]) {
+            showToast('📷 正在处理 Logo...');
+            compressImage(e.target.files[0], 400, 0.8).then(dataUrl => { // 顶部Logo可以小一点
+                // 1. 存入隐藏 value
+                document.getElementById('logoHeaderUrl').value = dataUrl;
+                
+                // 2. 立即更新界面预览
+                const img = document.getElementById('headerLogoPreviewImg');
+                const ph = document.getElementById('headerLogoPlaceholder');
+                if (img) { img.src = dataUrl; img.style.display = 'block'; }
+                if (ph) { ph.style.display = 'none'; }
+                
+                showToast('✅ 顶部 Logo 已就绪 (记得点保存)');
+            });
+        }
+    });
+
     // === 7. 设置保存 ===
     document.getElementById('discountSettingsForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // 1. 保存普通设置
-        const currentSettings = getDataByType('discount_settings')[0] || {};
-        const newSettings = {
-            type: 'discount_settings',
-            shop_name: document.getElementById('shopName').value.trim(),
-            ssm_number: document.getElementById('ssmNumber').value.trim(),
-            shop_address: document.getElementById('shopAddress').value.trim(),
-            wa_number: document.getElementById('waNumber').value,
-            logo_url: document.getElementById('shopLogo')?.value || '', 
-            map_link: document.getElementById('mapLink').value.trim(),
-            fb_link: document.getElementById('fbLink').value.trim(),
-            ig_link: document.getElementById('igLink').value.trim(),
-            tiktok_link: document.getElementById('tiktokLink').value.trim(),
-            enable_rewards: document.getElementById('enableRewards').checked,
-            enable_shop: document.getElementById('enableShop').checked,
-            bronze_points: parseInt(document.getElementById('bronzePoints').value) || 0,
-            bronze_discount: parseInt(document.getElementById('bronzeDiscount').value) || 0,
-            silver_points: parseInt(document.getElementById('silverPoints').value) || 100,
-            silver_discount: parseInt(document.getElementById('silverDiscount').value) || 5,
-            gold_points: parseInt(document.getElementById('goldPoints').value) || 300,
-            gold_discount: parseInt(document.getElementById('goldDiscount').value) || 10,
-            platinum_points: parseInt(document.getElementById('platinumPoints').value) || 600,
-            platinum_discount: parseInt(document.getElementById('platinumDiscount').value) || 15,
-            points_to_rm_rate: parseInt(document.getElementById('pointsToRmRate').value) || 10
-        };
-        
-        if (currentSettings.id) {
-            await updateRecord(currentSettings, newSettings);
-        } else {
-            await createRecord(newSettings);
+        try {
+            // 【关键】第一步：先保存管理员账号密码
+            const newAdminUser = document.getElementById('adminUsername').value.trim();
+            const newAdminPass = document.getElementById('adminPassword').value.trim();
+            
+            let rawData = JSON.parse(localStorage.getItem('gembrow_data') || '[]');
+            rawData = rawData.filter(item => item.type !== 'owner_credentials');
+            rawData.push({ 
+                id: Date.now().toString(), 
+                type: 'owner_credentials', 
+                username: newAdminUser, 
+                password: newAdminPass,
+                createdAt: new Date().toISOString()
+            });
+            localStorage.setItem('gembrow_data', JSON.stringify(rawData));
+            
+            // 更新全局内存
+            ownerCredentials = { username: newAdminUser, password: newAdminPass };
+            allData = allData.filter(item => item.type !== 'owner_credentials');
+            allData.push({
+                id: Date.now().toString(),
+                type: 'owner_credentials',
+                username: newAdminUser,
+                password: newAdminPass
+            });
+
+            // 【第二步】再保存普通设置 (包括 logo)
+            const currentSettings = getDataByType('discount_settings')[0] || {};
+            const newSettings = {
+                type: 'discount_settings',
+                shop_name: document.getElementById('shopName').value.trim(),
+                ssm_number: document.getElementById('ssmNumber').value.trim(),
+                shop_address: document.getElementById('shopAddress').value.trim(),
+                wa_number: document.getElementById('waNumber').value,
+                logo_login: document.getElementById('logoLoginUrl').value || '',
+                logo_header: document.getElementById('logoHeaderUrl').value || '',
+                map_link: document.getElementById('mapLink').value.trim(),
+                fb_link: document.getElementById('fbLink').value.trim(),
+                ig_link: document.getElementById('igLink').value.trim(),
+                tiktok_link: document.getElementById('tiktokLink').value.trim(),
+                enable_rewards: document.getElementById('enableRewards').checked,
+                enable_shop: document.getElementById('enableShop').checked,
+                enable_sst: document.getElementById('enableSST').checked,
+                sst_rate: parseInt(document.getElementById('sstRate').value) || 6,
+                sst_id: document.getElementById('sstID').value.trim(),
+                show_sst_on_receipt: document.getElementById('showSSTOnReceipt').checked,
+                bronze_points: parseInt(document.getElementById('bronzePoints').value) || 0,
+                bronze_discount: parseInt(document.getElementById('bronzeDiscount').value) || 0,
+                silver_points: parseInt(document.getElementById('silverPoints').value) || 100,
+                silver_discount: parseInt(document.getElementById('silverDiscount').value) || 5,
+                gold_points: parseInt(document.getElementById('goldPoints').value) || 300,
+                gold_discount: parseInt(document.getElementById('goldDiscount').value) || 10,
+                platinum_points: parseInt(document.getElementById('platinumPoints').value) || 600,
+                platinum_discount: parseInt(document.getElementById('platinumDiscount').value) || 15,
+                points_to_rm_rate: parseInt(document.getElementById('pointsToRmRate').value) || 10
+            };
+            
+            if (currentSettings.id) {
+                await updateRecord(currentSettings, newSettings);
+            } else {
+                await createRecord(newSettings);
+            }
+
+            // 【第三步】提示成功并刷新
+            showToast('✅ 设置已保存！');
+            allData = loadDb(); // 确保内存中有最新数据
+            renderApp();
+            initGlobalWidgets(); // 重新生成全局小工具
+        } catch (error) {
+            showToast('❌ 保存失败：' + error.message);
+            console.error('保存设置错误：', error);
         }
-
-        // 2. 保存管理员账号密码
-        const newAdminUser = document.getElementById('adminUsername').value.trim();
-        const newAdminPass = document.getElementById('adminPassword').value.trim();
-        
-        let rawData = JSON.parse(localStorage.getItem('gembrow_data') || '[]');
-        rawData = rawData.filter(item => item.type !== 'owner_credentials');
-        rawData.push({ 
-            id: Date.now().toString(), 
-            type: 'owner_credentials', 
-            username: newAdminUser, 
-            password: newAdminPass,
-            createdAt: new Date().toISOString()
-        });
-        localStorage.setItem('gembrow_data', JSON.stringify(rawData));
-        
-        // 更新全局内存
-        ownerCredentials = { username: newAdminUser, password: newAdminPass };
-        allData = loadDb(); // 重新加载数据到内存
-
-        // 3. 提示成功 & 刷新界面
-        showToast('✅ 设置已保存！WhatsApp 按钮已更新。');
-        
-        renderApp();        // 刷新页面内容
-        initGlobalWidgets(); // 👈【关键】强制重新生成右下角的按钮！
     });
 
     // === 8. 顾客功能 ===
@@ -2554,7 +2650,9 @@ function showPostModal(config) {
         }
     });
 }
-
+// ==========================================
+// 👇 预约弹窗
+// ==========================================
 function showBookingModal(config, serviceId, serviceName, servicePrice) {
     const customerAccount = loggedInCustomerName ?
         getDataByType('customer_account').find(acc => acc.username === loggedInCustomerName) : null;
@@ -2563,38 +2661,41 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
     const pointsToRmRate = settings.points_to_rm_rate || 10;
     const showRewards = settings.enable_rewards !== false;
 
+    // 获取服务详情（为了拿到时长）
+    const service = getDataByType('service').find(s => s.id === serviceId);
+    const duration = service ? (service.duration || 60) : 60; // 默认60分钟
+
     const modal = document.createElement('div');
-    // z-50 保证在最上层
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     
-    // 👇【关键修复】注意 style 里的 max-height 和 overflow-y
     modal.innerHTML = `
         <div style="background: rgba(255, 255, 255, 0.95); padding: 24px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto;">
-            <h3 class="mb-6 text-center" style="font-size: ${config.font_size * 1.5}px; font-weight: 700; color: ${config.primary_action_color};">
+            <h3 class="mb-2 text-center" style="font-size: ${config.font_size * 1.5}px; font-weight: 700; color: ${config.primary_action_color};">
                 预约 ${serviceName}
             </h3>
+            <p class="text-center text-xs text-gray-400 mb-6">预计时长: ${duration} 分钟</p>
         
             <form id="bookingForm">
                 <div class="mb-4">
-                    <label for="customerName" class="block mb-1 font-bold text-sm">姓名</label>
+                    <label class="block mb-1 font-bold text-sm">姓名</label>
                     <input type="text" id="customerName" required value="${loggedInCustomerName || ''}"
                         class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
                 </div>
             
                 <div class="mb-4">
-                    <label for="customerPhone" class="block mb-1 font-bold text-sm">电话</label>
+                    <label class="block mb-1 font-bold text-sm">电话</label>
                     <input type="tel" id="customerPhone" required
                         class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
                 </div>
             
-                <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label for="appointmentDate" class="block mb-1 font-bold text-sm">日期</label>
+                        <label class="block mb-1 font-bold text-sm">日期</label>
                         <input type="date" id="appointmentDate" required min="${new Date().toISOString().split('T')[0]}"
                             class="w-full px-3 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
                     </div>
                     <div>
-                        <label for="appointmentTime" class="block mb-1 font-bold text-sm">时间</label>
+                        <label class="block mb-1 font-bold text-sm">时间</label>
                         <input type="time" id="appointmentTime" required
                             class="w-full px-3 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
                     </div>
@@ -2640,7 +2741,7 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
 
     document.body.appendChild(modal);
 
-    // === 下面是逻辑部分，保持原样即可 ===
+    // 积分计算逻辑
     const pointsInput = document.getElementById('pointsToUse');
     if (pointsInput) {
         pointsInput.addEventListener('input', () => {
@@ -2650,15 +2751,12 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
             document.getElementById('pointsDiscount').textContent = `-RM${pointsDiscount}`;
             document.getElementById('finalPrice').textContent = `RM${finalPrice}`;
         });
-        const useMaxPointsBtn = document.getElementById('useMaxPointsBtn');
-        if (useMaxPointsBtn) {
-            useMaxPointsBtn.addEventListener('click', () => {
-                const maxPointsByPrice = Math.floor(parseFloat(servicePrice) * pointsToRmRate);
-                const maxPoints = Math.min(availablePoints, maxPointsByPrice);
-                pointsInput.value = maxPoints;
-                pointsInput.dispatchEvent(new Event('input'));
-            });
-        }
+        document.getElementById('useMaxPointsBtn').addEventListener('click', () => {
+            const maxPointsByPrice = Math.floor(parseFloat(servicePrice) * pointsToRmRate);
+            const maxPoints = Math.min(availablePoints, maxPointsByPrice);
+            pointsInput.value = maxPoints;
+            pointsInput.dispatchEvent(new Event('input'));
+        });
     }
 
     document.getElementById('bookingForm').addEventListener('submit', async (e) => {
@@ -2666,14 +2764,36 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
         const targetDate = document.getElementById('appointmentDate').value;
         const targetTime = document.getElementById('appointmentTime').value;
         
-        // 简单的防冲突检查
-        const existingBookings = getDataByType('booking');
-        const hasConflict = existingBookings.some(b =>
-            b.appointmentDate === targetDate && b.appointmentTime === targetTime && b.status !== 'cancelled'
+        // 🔥【核心功能】智能防撞车逻辑
+        // 1. 计算当前请求的开始和结束时间（分钟数）
+        const [h, m] = targetTime.split(':').map(Number);
+        const newStart = h * 60 + m;
+        const newEnd = newStart + duration; // 服务时长
+
+        // 2. 获取当天的所有订单（包括已预约 和 休息时间）
+        const existingBookings = getDataByType('booking').filter(b => 
+            b.appointmentDate === targetDate && b.status !== 'cancelled'
         );
 
+        // 3. 检查是否有重叠
+        let hasConflict = false;
+        
+        for (let b of existingBookings) {
+            const [bh, bm] = b.appointmentTime.split(':').map(Number);
+            const existStart = bh * 60 + bm;
+            // 如果旧订单没有 duration 字段（旧数据），默认算 60 分钟
+            const existDuration = b.duration || 60; 
+            const existEnd = existStart + existDuration;
+
+            // ⚡️ 冲突公式：(新开始 < 旧结束) 且 (新结束 > 旧开始)
+            if (newStart < existEnd && newEnd > existStart) {
+                hasConflict = true;
+                break;
+            }
+        }
+
         if (hasConflict) {
-            showToast('❌ 该时间段已有预约');
+            showToast('❌ 该时段忙碌或休息中，请换个时间'); // 提示更明确
             return;
         }
 
@@ -2693,6 +2813,7 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
             serviceName: serviceName,
             appointmentDate: targetDate,
             appointmentTime: targetTime,
+            duration: duration, // ✅ 保存时长，方便下次计算
             status: 'pending',
             totalAmount: parseFloat(finalPrice.toFixed(2)),
             points_used: pointsUsed
@@ -2707,7 +2828,6 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
     });
 
     document.getElementById('cancelBookingBtn').addEventListener('click', () => modal.remove());
-    // 点击背景关闭
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
@@ -3151,52 +3271,75 @@ function showCompleteBookingModal(config, booking) {
 // === 条款弹窗 (Terms / Privacy / Cookies) ===
 function showPolicyModal(config, type) {
     const policies = {
+        // 1. 服务条款 (涵盖：健康、审美、免责)
         terms: {
-            title: "Terms & Conditions (服务条款)",
+            title: "Terms & Conditions (服务与免责条款)",
             content: `
-                <div class="space-y-4 text-left">
-                    <div>
-                        <h4 class="font-bold text-base mb-1">1. 预约与定金 (Appointments)</h4>
-                        <p>所有服务建议提前 3-5 天预约。为了预留您的专属时段，我们可能会收取定金。定金将在服务完成后从总账单中扣除。</p>
+                <div class="space-y-4 text-left text-sm">
+                    <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+                        <h4 class="font-bold text-red-600 mb-1">⚠️ 重要免责声明 (Disclaimer)</h4>
+                        <ul class="list-disc pl-4 space-y-1 text-gray-700">
+                            <li><strong>过敏反应：</strong>美睫胶水/纹绣色料可能引起极少数人的过敏反应（红肿/发痒）。若您是敏感体质，请务必提前告知并要求做敏感测试。若未测试而直接操作，后续出现的过敏反应本店概不负责医疗赔偿。</li>
+                            <li><strong>健康告知：</strong>若您患有眼疾、刚做过眼部手术、正处于孕期或生理期，请务必提前告知。隐瞒健康状况导致的不良后果由客人自行承担。</li>
+                        </ul>
                     </div>
+
                     <div>
-                        <h4 class="font-bold text-base mb-1">2. 迟到与取消 (Late & Cancellation)</h4>
-                        <p>请准时到达。若迟到超过 15 分钟，为了不影响下一位客人的服务，我们保留缩短服务时间或取消预约的权利，定金可能不予退还。</p>
-                        <p>如需更改或取消，请至少提前 24 小时通知我们。</p>
+                        <h4 class="font-bold text-gray-800 mb-1">1. 审美与效果 (Results)</h4>
+                        <p class="text-gray-600">美睫/纹绣属于纯手工艺术，受个人眼型、毛发基础影响，<strong>无法做到 100% 绝对对称</strong>（人脸本身存在不对称）。图片仅供参考，实际效果因人而异。</p>
                     </div>
+
                     <div>
-                        <h4 class="font-bold text-base mb-1">3. 健康告知 (Health & Safety)</h4>
-                        <p>若您有眼部感染、皮肤敏感、怀孕或近期做过眼部手术，请务必在服务前告知美睫师。若因隐瞒健康状况导致的不适，本店概不负责。</p>
+                        <h4 class="font-bold text-gray-800 mb-1">2. 迟到与取消 (Late & Cancellation)</h4>
+                        <p class="text-gray-600">请准时到达。迟到超过 <strong>15 分钟</strong>，我们将有权取消您的预约或缩短服务时间，且<strong>定金不予退还</strong>。</p>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-gray-800 mb-1">3. 个人财物 (Belongings)</h4>
+                        <p class="text-gray-600">请妥善保管您的贵重物品。本店不对任何遗失或损坏承担责任。</p>
                     </div>
                 </div>
             `
         },
+        
+        // 2. 隐私政策 (标准版)
         privacy: {
             title: "Privacy Policy (隐私政策)",
             content: `
-                <div class="space-y-4 text-left">
-                    <p>我们非常重视您的隐私 (We value your privacy)。</p>
-                    <ul class="list-disc pl-5 space-y-2">
-                        <li><strong>信息收集：</strong>我们收集您的姓名、电话和邮箱仅用于预约确认、会员积分记录及售后服务。</li>
-                        <li><strong>信息安全：</strong>您的个人资料将被严格保密，绝不会出售或透露给第三方营销机构。</li>
-                        <li><strong>照片使用：</strong>在征得您同意的情况下，我们可能会拍摄服务前后的对比照用于店铺宣传。</li>
+                <div class="space-y-4 text-left text-sm text-gray-600">
+                    <p>Gem Brow Beauty 非常重视您的隐私安全。</p>
+                    <ul class="list-disc pl-4 space-y-2">
+                        <li><strong>资料收集：</strong>我们收集您的姓名、电话仅用于预约联系和会员档案管理。</li>
+                        <li><strong>照片使用：</strong>在服务前后，我们可能会拍摄局部照片（眼部/眉部）用于店铺作品展示。如您介意，请提前告知，我们会对您的面部进行打码处理或不公开。</li>
+                        <li><strong>绝不外泄：</strong>您的资料绝不会出售给任何第三方营销机构。</li>
                     </ul>
                 </div>
             `
         },
+        
+        // 3. 退换货政策 (涵盖：退款、补修、保修)
         return_policy: {
-            title: "Return Policy (退换货政策)",
+            title: "Return & Refund (售后与退款政策)",
             content: `
-                <div class="space-y-4 text-left">
+                <div class="space-y-4 text-left text-sm">
                     <div>
-                        <h4 class="font-bold text-base mb-1">💅 服务项目 (Services)</h4>
-                        <p class="text-red-500 font-bold">服务一经完成并离开店铺，恕不退款 (Strictly no refunds)。</p>
-                        <p>若您对服务效果有任何不满，请在服务结束当场提出，或在 3 天内联系我们，我们将免费为您进行调整或修补。</p>
+                        <h4 class="font-bold text-gray-800 mb-1">💅 服务售后 (Services)</h4>
+                        <p class="text-red-500 font-bold mb-2">服务一经完成并离开店铺，恕不退款 (Strictly No Refunds)。</p>
+                        <ul class="list-disc pl-4 text-gray-600 space-y-1">
+                            <li><strong>当场确认：</strong>请在服务结束时仔细检查，如有不满意请当场提出，我们将立即调整。</li>
+                            <li><strong>3天保修期：</strong>若接睫毛在 3 天内出现非人为的大量脱落（超过 30%），请拍照联系我们，我们将为您安排<strong>免费修补一次</strong>。</li>
+                            <li><strong>人为损坏：</strong>因揉眼、使用油性卸妆油、桑拿游泳等个人护理不当导致的脱落，不在保修范围内。</li>
+                        </ul>
                     </div>
+                    
                     <div class="border-t pt-4">
-                        <h4 class="font-bold text-base mb-1">📦 实体商品 (Products)</h4>
-                        <p>商品（如睫毛增长液、护理液等）若未拆封且保留原包装，可在购买后 7 天内凭收据进行更换。</p>
-                        <p>已拆封或因人为原因损坏的商品，恕不接受退换。</p>
+                        <h4 class="font-bold text-gray-800 mb-1">📦 产品退换 (Products)</h4>
+                        <p class="text-gray-600">实体商品（如护理液）若未拆封，可在 7 天内凭收据更换。已拆封使用的商品因卫生原因恕不退换。</p>
+                    </div>
+
+                    <div class="border-t pt-4">
+                        <h4 class="font-bold text-gray-800 mb-1">💸 定金退还 (Deposits)</h4>
+                        <p class="text-gray-600">预约需支付定金。若需更改时间，请至少提前 <strong>24小时</strong> 通知，定金可保留至下次使用。临时取消或爽约，定金不退。</p>
                     </div>
                 </div>
             `
@@ -3209,24 +3352,26 @@ function showPolicyModal(config, type) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     
-    // 使用 config.primary_action_color 来保持风格统一
     modal.innerHTML = `
-        <div style="background: rgba(255, 255, 255, 0.98); padding: 32px; border-radius: 16px; max-width: 600px; width: 100%; border-top: 4px solid ${config.primary_action_color}; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); max-height: 80vh; overflow-y: auto;">
-            <div class="flex justify-between items-center mb-6 border-b pb-4">
-                <h3 style="font-size: ${config.font_size * 1.4}px; font-weight: 700; color: ${config.primary_action_color};">
+        <div class="animate-fade-in-down" style="background: rgba(255, 255, 255, 0.98); padding: 0; border-radius: 16px; max-width: 600px; width: 100%; border-top: 6px solid ${config.primary_action_color}; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); max-height: 85vh; display: flex; flex-direction: column;">
+            
+            <div class="flex justify-between items-center p-6 border-b">
+                <h3 style="font-size: ${config.font_size * 1.2}px; font-weight: 700; color: ${config.primary_action_color};">
                     ${policy.title}
                 </h3>
-                <button id="closePolicyBtn" style="font-size: 24px; color: ${config.text_color}; background: none; border: none; cursor: pointer; opacity: 0.5; transition: opacity 0.2s;">✕</button>
+                <button id="closePolicyBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
             </div>
             
-            <div class="text-sm leading-relaxed opacity-80" style="color: ${config.text_color}; font-family: sans-serif;">
+            <div class="p-6 overflow-y-auto" style="font-family: sans-serif; line-height: 1.6;">
                 ${policy.content}
             </div>
             
-            <div class="mt-8 text-center pt-4 border-t border-gray-100">
-                <button id="okPolicyBtn" class="px-10 py-3 rounded-full shadow-lg transform active:scale-95 transition-all" 
+            <div class="p-6 border-t bg-gray-50 rounded-b-xl text-center">
+                <button id="okPolicyBtn" class="px-10 py-3 rounded-full shadow-lg transform active:scale-95 transition-all hover:shadow-xl" 
                     style="background: ${config.primary_action_color}; color: #ffffff; font-weight: bold; font-size: 14px;">
-                    我已了解 (Understood)
+                    我已阅读并同意 (I Agree)
                 </button>
             </div>
         </div>
@@ -3235,7 +3380,6 @@ function showPolicyModal(config, type) {
     document.body.appendChild(modal);
     const close = () => modal.remove();
     
-    // 绑定关闭事件
     document.getElementById('closePolicyBtn').addEventListener('click', close);
     document.getElementById('okPolicyBtn').addEventListener('click', close);
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
@@ -4070,5 +4214,385 @@ function compressImage(file, maxWidth = 800, quality = 0.7) {
         reader.onerror = (err) => reject(err);
     });
 }
+
+// ==========================================
+// 👇 新增：设置休息时间弹窗
+// ==========================================
+function showBlockTimeModal(config) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    
+    modal.innerHTML = `
+        <div style="background: white; padding: 24px; border-radius: 16px; max-width: 400px; width: 100%; border: 3px solid #374151; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <h3 class="mb-4 text-center font-bold text-xl text-gray-800">⛔ 设置休息/锁定时间</h3>
+            
+            <form id="blockTimeForm">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block mb-1 font-bold text-sm">日期</label>
+                        <input type="date" id="blockDate" required min="${new Date().toISOString().split('T')[0]}"
+                            class="w-full px-3 py-2 border-2 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block mb-1 font-bold text-sm">开始时间</label>
+                        <input type="time" id="blockTime" required class="w-full px-3 py-2 border-2 rounded-lg">
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block mb-1 font-bold text-sm">锁定多久 (分钟)</label>
+                    <select id="blockDuration" class="w-full px-3 py-2 border-2 rounded-lg">
+                        <option value="60">1 小时</option>
+                        <option value="90">1.5 小时</option>
+                        <option value="120">2 小时</option>
+                        <option value="180">3 小时</option>
+                        <option value="480">全天 (8小时)</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 py-3 rounded-lg font-bold text-white bg-gray-800">确认锁定</button>
+                    <button type="button" id="cancelBlockBtn" class="flex-1 py-3 rounded-lg border-2">取消</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.getElementById('blockTimeForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const date = document.getElementById('blockDate').value;
+        const time = document.getElementById('blockTime').value;
+        const duration = parseInt(document.getElementById('blockDuration').value);
+        
+        await createRecord({
+            type: 'booking',
+            customerName: '⛔ 休息中 (已锁定)',
+            customerPhone: '-',
+            serviceName: '商家休息',
+            appointmentDate: date,
+            appointmentTime: time,
+            duration: duration,
+            status: 'completed', // 直接设为 completed 或者 pending 都可以，反正占位了
+            totalAmount: 0
+        });
+        
+        showToast('✅ 时间段已锁定');
+        modal.remove();
+        renderApp();
+    });
+    
+    document.getElementById('cancelBlockBtn').addEventListener('click', () => modal.remove());
+}
+
+// ==========================================
+// 👇 新增：傻瓜收银台 (含 SST 计算)
+// ==========================================
+function showCashierModal(config, booking = null) {
+    const settings = getDiscountSettings();
+    const hasSST = settings.enable_sst;
+    const sstRate = parseFloat(settings.sst_rate || 6);
+    
+    // 初始化数据
+    let items = [];
+    if (booking) {
+        items.push({ name: booking.serviceName, price: booking.totalAmount, type: 'service' });
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    
+    // 渲染函数 (因为增加商品要刷新界面)
+    const renderContent = () => {
+        // 计算总价
+        const total = items.reduce((sum, item) => sum + item.price, 0);
+        
+        // SST 计算 (内扣公式: 税额 = 总价 - (总价 / (1 + 税率)))
+        // 例如: 106块, 6%税 -> 106 / 1.06 = 100(本金), 6(税)
+        const sstAmount = hasSST ? (total - (total / (1 + (sstRate / 100)))) : 0;
+        const subTotal = total - sstAmount;
+
+        return `
+            <div style="background: white; padding: 0; border-radius: 16px; max-width: 450px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
+                <div class="p-5 text-white text-center relative" style="background: ${config.primary_action_color};">
+                    <h3 class="text-xl font-bold">💰 收银台 (Cashier)</h3>
+                    <p class="text-xs opacity-80 mt-1">${new Date().toLocaleString()}</p>
+                    <button id="closeCashierBtn" class="absolute top-4 right-4 text-white opacity-70 hover:opacity-100">✕</button>
+                </div>
+
+                <div class="p-5 flex-1 overflow-y-auto bg-gray-50">
+                    <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
+                        <h4 class="font-bold text-gray-500 text-xs uppercase tracking-wider mb-3 border-b pb-2">当前消费明细</h4>
+                        ${items.map((item, index) => `
+                            <div class="flex justify-between items-center mb-2 text-sm">
+                                <div>
+                                    <span class="font-bold text-gray-800">${item.name}</span>
+                                    <span class="text-xs text-gray-400 block">${item.type === 'service' ? '服务项目' : '附加商品'}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold">RM ${item.price.toFixed(2)}</span>
+                                    ${item.type !== 'service' ? `<button onclick="window.removeItem(${index})" class="text-red-400 text-xs">✕</button>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                        
+                        <div class="mt-4 pt-3 border-t border-dashed flex gap-2">
+                            <input type="text" id="extraName" placeholder="加购商品 (如: 护理液)" class="flex-1 px-2 py-1 text-sm border rounded">
+                            <input type="number" id="extraPrice" placeholder="RM" class="w-20 px-2 py-1 text-sm border rounded">
+                            <button id="addExtraBtn" class="bg-green-500 text-white px-3 py-1 rounded text-sm font-bold">+</button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 text-sm px-2">
+                        ${hasSST && settings.show_sst_on_receipt ? `
+                            <div class="flex justify-between text-gray-500">
+                                <span>税前 (Subtotal)</span>
+                                <span>RM ${subTotal.toFixed(2)}</span>
+                            </div>
+                            <div class="flex justify-between text-blue-600">
+                                <span>SST (${sstRate}%) (Included)</span>
+                                <span>RM ${sstAmount.toFixed(2)}</span>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="flex justify-between items-center text-xl font-bold text-gray-800 border-t border-gray-300 pt-3 mt-2">
+                            <span>应收总额 (Total)</span>
+                            <span style="color: ${config.primary_action_color};">RM ${total.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 border-t bg-white">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">选择支付方式</label>
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <button class="pay-btn py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="TNG">TNG</button>
+                        <button class="pay-btn py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="DuitNow">DuitNow</button>
+                        <button class="pay-btn py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="Cash">Cash</button>
+                    </div>
+                    
+                    <button id="confirmPayBtn" class="w-full py-3 rounded-xl font-bold text-white shadow-lg text-lg flex items-center justify-center gap-2" 
+                        style="background: ${config.primary_action_color}; opacity: 0.5; cursor: not-allowed;" disabled>
+                        <span>✅ 确认收款 & 发单据</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    };
+
+    modal.innerHTML = renderContent();
+    document.body.appendChild(modal);
+
+    // === 逻辑处理 ===
+    let selectedMethod = '';
+
+    // 重新绑定的辅助函数
+    const refresh = () => {
+        modal.innerHTML = renderContent();
+        bindEvents();
+    };
+
+    // 必须要挂载到 window 上才能在 HTML onclick 里调用
+    window.removeItem = (index) => {
+        items.splice(index, 1);
+        refresh();
+    };
+
+    const bindEvents = () => {
+        // 关闭
+        document.getElementById('closeCashierBtn').addEventListener('click', () => modal.remove());
+
+        // 加购
+        document.getElementById('addExtraBtn')?.addEventListener('click', () => {
+            const name = document.getElementById('extraName').value;
+            const price = parseFloat(document.getElementById('extraPrice').value);
+            if(name && price) {
+                items.push({ name, price, type: 'product' });
+                refresh();
+            }
+        });
+
+        // 选支付方式
+        document.querySelectorAll('.pay-btn').forEach(btn => {
+            if(btn.dataset.method === selectedMethod) {
+                btn.classList.add('bg-pink-50', 'border-pink-500', 'text-pink-600');
+            }
+            btn.addEventListener('click', () => {
+                selectedMethod = btn.dataset.method;
+                refresh();
+                // 激活确认按钮
+                const confirmBtn = document.getElementById('confirmPayBtn');
+                confirmBtn.disabled = false;
+                confirmBtn.style.opacity = '1';
+                confirmBtn.style.cursor = 'pointer';
+            });
+        });
+
+        // 确认收款
+        document.getElementById('confirmPayBtn')?.addEventListener('click', async () => {
+            const total = items.reduce((sum, i) => sum + i.price, 0);
+            
+            // 1. 更新后台数据 (如果有关联预约，把状态改成 completed)
+            if (booking) {
+                await updateRecord(booking, { status: 'completed', paymentMethod: selectedMethod, actualPaid: total });
+            }
+            // 2. 记一笔流水 (Sales Record) - 这是给"今日战报"用的
+            await createRecord({
+                type: 'sales_record',
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toLocaleTimeString(),
+                amount: total,
+                method: selectedMethod,
+                items: items,
+                customer: booking ? booking.customerName : 'Walk-in'
+            });
+
+            // 3. 生成 WhatsApp 收据文案
+            const sstAmount = hasSST ? (total - (total / (1 + (sstRate / 100)))) : 0;
+            const subTotal = total - sstAmount;
+            
+            let receiptText = `*🧾 电子收据 (E-Receipt)*\n`;
+            receiptText += `*${settings.shop_name || 'Gem Brow'}*\n`;
+            receiptText += `------------------------\n`;
+            receiptText += `📅 Date: ${new Date().toLocaleDateString()}\n`;
+            items.forEach(i => {
+                receiptText += `${i.name}: RM ${i.price.toFixed(2)}\n`;
+            });
+            receiptText += `------------------------\n`;
+            if (hasSST && settings.show_sst_on_receipt) {
+                receiptText += `Subtotal: RM ${subTotal.toFixed(2)}\n`;
+                receiptText += `SST (${sstRate}%): RM ${sstAmount.toFixed(2)}\n`;
+                if(settings.sst_id) receiptText += `(SST ID: ${settings.sst_id})\n`;
+            }
+            receiptText += `*TOTAL: RM ${total.toFixed(2)}*\n`;
+            receiptText += `------------------------\n`;
+            receiptText += `Paid via: ${selectedMethod}\n`;
+            receiptText += `\nThank you for your support! ✨`;
+
+            // 4. 跳转 WhatsApp
+            if(booking && booking.customerPhone) {
+                const url = `https://wa.me/${booking.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(receiptText)}`;
+                window.open(url, '_blank');
+            } else {
+                alert("收款成功！(无客户电话，无法发送 WhatsApp)");
+            }
+            
+            modal.remove();
+            renderApp(); // 刷新后台界面
+        });
+    };
+
+    bindEvents();
+}
+
+// ==========================================
+// 👇 新增：历史与账单页面 (双Tab)
+// ==========================================
+function renderHistoryPage(config) {
+    // 1. 获取预约历史 (已完成 + 已取消)
+    const allBookings = getDataByType('booking');
+    const historyBookings = allBookings.filter(b => 
+        b.customerName === loggedInCustomerName && 
+        (b.status === 'completed' || b.status === 'cancelled')
+    ).reverse(); // 最新的在前面
+
+    // 2. 获取购物记录 (Sales Records) - 配合收银台功能
+    const allSales = getDataByType('sales_record');
+    const mySales = allSales.filter(s => s.customer === loggedInCustomerName).reverse();
+
+    // 3. Tab 切换逻辑
+    setTimeout(() => {
+        const btnBook = document.getElementById('tabBtnBooking');
+        const btnShop = document.getElementById('tabBtnShopping');
+        const contentBook = document.getElementById('contentBooking');
+        const contentShop = document.getElementById('contentShopping');
+
+        if(btnBook && btnShop) {
+            btnBook.addEventListener('click', () => {
+                btnBook.classList.add('text-pink-600', 'border-b-2', 'border-pink-600');
+                btnBook.classList.remove('text-gray-400');
+                btnShop.classList.remove('text-pink-600', 'border-b-2', 'border-pink-600');
+                btnShop.classList.add('text-gray-400');
+                contentBook.style.display = 'block';
+                contentShop.style.display = 'none';
+            });
+            btnShop.addEventListener('click', () => {
+                btnShop.classList.add('text-pink-600', 'border-b-2', 'border-pink-600');
+                btnShop.classList.remove('text-gray-400');
+                btnBook.classList.remove('text-pink-600', 'border-b-2', 'border-pink-600');
+                btnBook.classList.add('text-gray-400');
+                contentShop.style.display = 'block';
+                contentBook.style.display = 'none';
+            });
+        }
+    }, 100);
+
+    return `
+        <div class="animate-fade-in pb-20">
+            <h2 class="mb-6" style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color};">
+                📜 历史与账单
+            </h2>
+
+            <div class="flex border-b border-gray-200 mb-6">
+                <button id="tabBtnBooking" class="flex-1 pb-3 font-bold text-pink-600 border-b-2 border-pink-600 transition-colors">
+                    预约记录
+                </button>
+                <button id="tabBtnShopping" class="flex-1 pb-3 font-bold text-gray-400 transition-colors">
+                    购物账单
+                </button>
+            </div>
+
+            <div id="contentBooking">
+                ${historyBookings.length === 0 ? `
+                    <div class="text-center py-10 opacity-50"><p>暂无历史预约</p></div>
+                ` : `
+                    <div class="space-y-4">
+                        ${historyBookings.map(b => `
+                            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center opacity-80">
+                                <div>
+                                    <div class="font-bold text-gray-800">${b.serviceName}</div>
+                                    <div class="text-xs text-gray-500">${b.appointmentDate} @ ${b.appointmentTime}</div>
+                                </div>
+                                <span class="px-2 py-1 rounded text-xs font-bold ${b.status === 'completed' ? 'bg-gray-100 text-gray-600' : 'bg-red-50 text-red-400'}">
+                                    ${b.status === 'completed' ? '✅ 已完成' : '❌ 已取消'}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `}
+            </div>
+
+            <div id="contentShopping" style="display: none;">
+                ${mySales.length === 0 ? `
+                    <div class="text-center py-10 opacity-50"><p>暂无购物记录</p></div>
+                ` : `
+                    <div class="space-y-4">
+                        ${mySales.map(s => `
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 bg-blue-50 text-blue-600 px-3 py-1 rounded-bl-lg text-xs font-bold">
+                                    ${s.method || 'Cash'}
+                                </div>
+                                <div class="text-xs text-gray-400 mb-2">${s.date} ${s.time || ''}</div>
+                                <div class="border-b border-dashed border-gray-200 pb-2 mb-2">
+                                    ${s.items.map(item => `
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>${item.name}</span>
+                                            <span class="font-mono">RM ${item.price}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <div class="flex justify-between font-bold text-gray-800">
+                                    <span>总计 (Total)</span>
+                                    <span>RM ${s.amount.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `}
+            </div>
+        </div>
+    `;
+}
+
 initApp();
 initGlobalWidgets();
