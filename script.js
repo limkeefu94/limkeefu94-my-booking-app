@@ -1480,6 +1480,31 @@ function renderSettings(config) {
                     <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(this)">
                 </div>
             </div>
+
+            <div class="mt-6 pt-6 border-t border-blue-200">
+                        <label class="block mb-2 text-sm font-bold text-gray-700">TNG / DuitNow 收款码 (QR Code)</label>
+                        <div class="flex items-center gap-4">
+                            <div class="w-24 h-24 bg-white rounded-lg border-2 border-dashed border-blue-300 flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-colors overflow-hidden relative group"
+                                 onclick="document.getElementById('tngQrInput').click()">
+                                
+                                <img id="tngQrPreview" src="${discountSettings.tng_qr_url || ''}" class="w-full h-full object-contain" style="display: ${discountSettings.tng_qr_url ? 'block' : 'none'}">
+                                <span id="tngQrPlaceholder" class="text-2xl opacity-30" style="display: ${discountSettings.tng_qr_url ? 'none' : 'block'}">📷</span>
+                                
+                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
+                                    <span class="text-[10px] text-white bg-black bg-opacity-50 px-2 py-1 rounded-full opacity-0 group-hover:opacity-100">更换</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex-1">
+                                <p class="text-xs text-gray-500 mb-1">顾客选择 TNG 支付时，点击图标可弹出此二维码。</p>
+                                <p class="text-xs text-blue-500">建议上传正方形的 TNG 或 DuitNow 二维码图片。</p>
+                            </div>
+                            
+                            <input type="file" id="tngQrInput" accept="image/*" style="display: none;">
+                            <input type="hidden" id="tngQrUrl" value="${discountSettings.tng_qr_url || ''}">
+                        </div>
+                    </div>
+                </div>
         </div>
     `;
 }
@@ -2146,6 +2171,21 @@ function attachEventListeners(config, services, bookings, posts) {
         }
     });
 
+    // 👇 新增：TNG 二维码上传监听
+    document.getElementById('tngQrInput')?.addEventListener('change', function(e) {
+        if (e.target.files[0]) {
+            showToast('📷 处理二维码中...');
+            compressImage(e.target.files[0], 600, 0.8).then(dataUrl => {
+                document.getElementById('tngQrUrl').value = dataUrl;
+                const img = document.getElementById('tngQrPreview');
+                const ph = document.getElementById('tngQrPlaceholder');
+                if (img) { img.src = dataUrl; img.style.display = 'block'; }
+                if (ph) { ph.style.display = 'none'; }
+                showToast('✅ 二维码已就绪');
+            });
+        }
+    });
+
     document.getElementById('logoLoginInput')?.addEventListener('change', function(e) {
         if (e.target.files[0]) {
             showToast('📷 正在处理 Logo...');
@@ -2232,6 +2272,7 @@ function attachEventListeners(config, services, bookings, posts) {
                 sst_rate: parseInt(document.getElementById('sstRate').value) || 6,
                 sst_id: document.getElementById('sstID').value.trim(),
                 show_sst_on_receipt: document.getElementById('showSSTOnReceipt').checked,
+                tng_qr_url: document.getElementById('tngQrUrl').value,
                 bronze_points: parseInt(document.getElementById('bronzePoints').value) || 0,
                 bronze_discount: parseInt(document.getElementById('bronzeDiscount').value) || 0,
                 silver_points: parseInt(document.getElementById('silverPoints').value) || 100,
@@ -4294,7 +4335,6 @@ function showCashierModal(config, booking = null) {
     const hasSST = settings.enable_sst;
     const sstRate = parseFloat(settings.sst_rate || 6);
     
-    // 初始化数据
     let items = [];
     if (booking) {
         items.push({ name: booking.serviceName, price: booking.totalAmount, type: 'service' });
@@ -4303,33 +4343,24 @@ function showCashierModal(config, booking = null) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     
-    // 渲染函数 (因为增加商品要刷新界面)
     const renderContent = () => {
-        // 计算总价
         const total = items.reduce((sum, item) => sum + item.price, 0);
-        
-        // SST 计算 (内扣公式: 税额 = 总价 - (总价 / (1 + 税率)))
-        // 例如: 106块, 6%税 -> 106 / 1.06 = 100(本金), 6(税)
         const sstAmount = hasSST ? (total - (total / (1 + (sstRate / 100)))) : 0;
         const subTotal = total - sstAmount;
 
         return `
             <div style="background: white; padding: 0; border-radius: 16px; max-width: 450px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
                 <div class="p-5 text-white text-center relative" style="background: ${config.primary_action_color};">
-                    <h3 class="text-xl font-bold">💰 收银台 (Cashier)</h3>
+                    <h3 class="text-xl font-bold">💰 收银台</h3>
                     <p class="text-xs opacity-80 mt-1">${new Date().toLocaleString()}</p>
                     <button id="closeCashierBtn" class="absolute top-4 right-4 text-white opacity-70 hover:opacity-100">✕</button>
                 </div>
 
                 <div class="p-5 flex-1 overflow-y-auto bg-gray-50">
                     <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
-                        <h4 class="font-bold text-gray-500 text-xs uppercase tracking-wider mb-3 border-b pb-2">当前消费明细</h4>
                         ${items.map((item, index) => `
                             <div class="flex justify-between items-center mb-2 text-sm">
-                                <div>
-                                    <span class="font-bold text-gray-800">${item.name}</span>
-                                    <span class="text-xs text-gray-400 block">${item.type === 'service' ? '服务项目' : '附加商品'}</span>
-                                </div>
+                                <div><span class="font-bold text-gray-800">${item.name}</span></div>
                                 <div class="flex items-center gap-2">
                                     <span class="font-bold">RM ${item.price.toFixed(2)}</span>
                                     ${item.type !== 'service' ? `<button onclick="window.removeItem(${index})" class="text-red-400 text-xs">✕</button>` : ''}
@@ -4338,7 +4369,7 @@ function showCashierModal(config, booking = null) {
                         `).join('')}
                         
                         <div class="mt-4 pt-3 border-t border-dashed flex gap-2">
-                            <input type="text" id="extraName" placeholder="加购商品 (如: 护理液)" class="flex-1 px-2 py-1 text-sm border rounded">
+                            <input type="text" id="extraName" placeholder="加购商品..." class="flex-1 px-2 py-1 text-sm border rounded">
                             <input type="number" id="extraPrice" placeholder="RM" class="w-20 px-2 py-1 text-sm border rounded">
                             <button id="addExtraBtn" class="bg-green-500 text-white px-3 py-1 rounded text-sm font-bold">+</button>
                         </div>
@@ -4346,35 +4377,34 @@ function showCashierModal(config, booking = null) {
 
                     <div class="space-y-2 text-sm px-2">
                         ${hasSST && settings.show_sst_on_receipt ? `
-                            <div class="flex justify-between text-gray-500">
-                                <span>税前 (Subtotal)</span>
-                                <span>RM ${subTotal.toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between text-blue-600">
-                                <span>SST (${sstRate}%) (Included)</span>
-                                <span>RM ${sstAmount.toFixed(2)}</span>
-                            </div>
+                            <div class="flex justify-between text-gray-500"><span>税前 (Subtotal)</span><span>RM ${subTotal.toFixed(2)}</span></div>
+                            <div class="flex justify-between text-blue-600"><span>SST (${sstRate}%)</span><span>RM ${sstAmount.toFixed(2)}</span></div>
                         ` : ''}
-                        
                         <div class="flex justify-between items-center text-xl font-bold text-gray-800 border-t border-gray-300 pt-3 mt-2">
-                            <span>应收总额 (Total)</span>
-                            <span style="color: ${config.primary_action_color};">RM ${total.toFixed(2)}</span>
+                            <span>Total</span><span style="color: ${config.primary_action_color};">RM ${total.toFixed(2)}</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="p-5 border-t bg-white">
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">选择支付方式</label>
                     <div class="grid grid-cols-3 gap-2 mb-4">
-                        <button class="pay-btn py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="TNG">TNG</button>
+                        <div class="relative">
+                            <button class="pay-btn w-full py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="TNG">TNG</button>
+                            ${settings.tng_qr_url ? `<div id="showQrBtn" class="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full text-white flex items-center justify-center text-xs cursor-pointer shadow-md" title="显示二维码">📱</div>` : ''}
+                        </div>
                         <button class="pay-btn py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="DuitNow">DuitNow</button>
                         <button class="pay-btn py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="Cash">Cash</button>
                     </div>
                     
-                    <button id="confirmPayBtn" class="w-full py-3 rounded-xl font-bold text-white shadow-lg text-lg flex items-center justify-center gap-2" 
-                        style="background: ${config.primary_action_color}; opacity: 0.5; cursor: not-allowed;" disabled>
-                        <span>✅ 确认收款 & 发单据</span>
-                    </button>
+                    <div class="flex gap-2">
+                        <button id="printBtn" class="flex-1 py-3 rounded-xl font-bold border-2 text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1">
+                            🖨️ 打印
+                        </button>
+                        <button id="confirmPayBtn" class="flex-[2] py-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2" 
+                            style="background: ${config.primary_action_color}; opacity: 0.5; cursor: not-allowed;" disabled>
+                            <span>✅ 确认 & 发 WhatsApp</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -4383,44 +4413,83 @@ function showCashierModal(config, booking = null) {
     modal.innerHTML = renderContent();
     document.body.appendChild(modal);
 
-    // === 逻辑处理 ===
     let selectedMethod = '';
 
-    // 重新绑定的辅助函数
-    const refresh = () => {
-        modal.innerHTML = renderContent();
-        bindEvents();
-    };
+    const refresh = () => { modal.innerHTML = renderContent(); bindEvents(); };
+    window.removeItem = (index) => { items.splice(index, 1); refresh(); };
 
-    // 必须要挂载到 window 上才能在 HTML onclick 里调用
-    window.removeItem = (index) => {
-        items.splice(index, 1);
-        refresh();
+    // 🖨️ 打印收据功能 (纯净版 HTML)
+    const printReceipt = () => {
+        const total = items.reduce((sum, i) => sum + i.price, 0);
+        const sstAmount = hasSST ? (total - (total / (1 + (sstRate / 100)))) : 0;
+        const subTotal = total - sstAmount;
+
+        // 打开新窗口打印
+        const printWindow = window.open('', '_blank', 'width=400,height=600');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Receipt - ${settings.shop_name || 'Gem Brow'}</title>
+                <style>
+                    body { font-family: 'Courier New', monospace; padding: 20px; font-size: 12px; }
+                    .header { text-align: center; margin-bottom: 20px; }
+                    .shop-name { font-size: 16px; font-weight: bold; }
+                    .divider { border-top: 1px dashed #000; margin: 10px 0; }
+                    .item { display: flex; justify-content: space-between; margin-bottom: 5px; }
+                    .total { font-size: 14px; font-weight: bold; margin-top: 10px; text-align: right; }
+                    .footer { text-align: center; margin-top: 20px; font-size: 10px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="shop-name">${settings.shop_name || 'Gem Brow Beauty'}</div>
+                    <div>${settings.shop_address || ''}</div>
+                    <div>${settings.wa_number || ''}</div>
+                    <div class="divider"></div>
+                    <div>Date: ${new Date().toLocaleString()}</div>
+                    <div>ID: #${Date.now().toString().slice(-6)}</div>
+                </div>
+                <div class="content">
+                    ${items.map(i => `<div class="item"><span>${i.name}</span><span>RM ${i.price.toFixed(2)}</span></div>`).join('')}
+                    
+                    <div class="divider"></div>
+                    ${hasSST && settings.show_sst_on_receipt ? `
+                        <div class="item"><span>Subtotal</span><span>RM ${subTotal.toFixed(2)}</span></div>
+                        <div class="item"><span>SST (${sstRate}%)</span><span>RM ${sstAmount.toFixed(2)}</span></div>
+                        ${settings.sst_id ? `<div style="font-size:10px;">SST ID: ${settings.sst_id}</div>` : ''}
+                    ` : ''}
+                    <div class="total">TOTAL: RM ${total.toFixed(2)}</div>
+                    <div class="item" style="font-size:10px; margin-top:5px;">Paid via: ${selectedMethod || '-'}</div>
+                </div>
+                <div class="footer">
+                    Thank you for your visit!<br>Please come again.
+                </div>
+                <script>window.print();</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
     };
 
     const bindEvents = () => {
-        // 关闭
         document.getElementById('closeCashierBtn').addEventListener('click', () => modal.remove());
-
+        
         // 加购
         document.getElementById('addExtraBtn')?.addEventListener('click', () => {
             const name = document.getElementById('extraName').value;
             const price = parseFloat(document.getElementById('extraPrice').value);
-            if(name && price) {
-                items.push({ name, price, type: 'product' });
-                refresh();
-            }
+            if(name && price) { items.push({ name, price, type: 'product' }); refresh(); }
         });
 
-        // 选支付方式
+        // 打印按钮
+        document.getElementById('printBtn')?.addEventListener('click', printReceipt);
+
+        // 支付方式
         document.querySelectorAll('.pay-btn').forEach(btn => {
-            if(btn.dataset.method === selectedMethod) {
-                btn.classList.add('bg-pink-50', 'border-pink-500', 'text-pink-600');
-            }
+            if(btn.dataset.method === selectedMethod) btn.classList.add('bg-pink-50', 'border-pink-500', 'text-pink-600');
             btn.addEventListener('click', () => {
                 selectedMethod = btn.dataset.method;
                 refresh();
-                // 激活确认按钮
                 const confirmBtn = document.getElementById('confirmPayBtn');
                 confirmBtn.disabled = false;
                 confirmBtn.style.opacity = '1';
@@ -4428,15 +4497,33 @@ function showCashierModal(config, booking = null) {
             });
         });
 
-        // 确认收款
+        // 📱 显示二维码弹窗
+        document.getElementById('showQrBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation(); // 防止触发父按钮点击
+            if (settings.tng_qr_url) {
+                const qrModal = document.createElement('div');
+                qrModal.className = 'fixed inset-0 z-[60] flex items-center justify-center p-4';
+                qrModal.style.background = 'rgba(0,0,0,0.8)';
+                qrModal.innerHTML = `
+                    <div class="bg-white p-4 rounded-xl max-w-sm w-full relative animate-fade-in-down text-center">
+                        <h3 class="font-bold text-lg mb-4 text-blue-600">📲 扫码支付</h3>
+                        <img src="${settings.tng_qr_url}" class="w-full h-auto rounded-lg mb-2">
+                        <p class="text-xs text-gray-500">支持 TNG eWallet / DuitNow</p>
+                        <button id="closeQr" class="mt-4 w-full py-3 bg-gray-100 rounded-lg font-bold">关闭</button>
+                    </div>
+                `;
+                document.body.appendChild(qrModal);
+                document.getElementById('closeQr').addEventListener('click', () => qrModal.remove());
+                qrModal.addEventListener('click', (e) => { if(e.target===qrModal) qrModal.remove(); });
+            } else {
+                showToast('❌ 还没有上传二维码哦，请去设置里添加');
+            }
+        });
+
+        // 确认收款 (原有逻辑)
         document.getElementById('confirmPayBtn')?.addEventListener('click', async () => {
             const total = items.reduce((sum, i) => sum + i.price, 0);
-            
-            // 1. 更新后台数据 (如果有关联预约，把状态改成 completed)
-            if (booking) {
-                await updateRecord(booking, { status: 'completed', paymentMethod: selectedMethod, actualPaid: total });
-            }
-            // 2. 记一笔流水 (Sales Record) - 这是给"今日战报"用的
+            if (booking) await updateRecord(booking, { status: 'completed', paymentMethod: selectedMethod, actualPaid: total });
             await createRecord({
                 type: 'sales_record',
                 date: new Date().toISOString().split('T')[0],
@@ -4447,38 +4534,25 @@ function showCashierModal(config, booking = null) {
                 customer: booking ? booking.customerName : 'Walk-in'
             });
 
-            // 3. 生成 WhatsApp 收据文案
+            // 生成 WhatsApp
             const sstAmount = hasSST ? (total - (total / (1 + (sstRate / 100)))) : 0;
             const subTotal = total - sstAmount;
-            
-            let receiptText = `*🧾 电子收据 (E-Receipt)*\n`;
-            receiptText += `*${settings.shop_name || 'Gem Brow'}*\n`;
-            receiptText += `------------------------\n`;
-            receiptText += `📅 Date: ${new Date().toLocaleDateString()}\n`;
-            items.forEach(i => {
-                receiptText += `${i.name}: RM ${i.price.toFixed(2)}\n`;
-            });
+            let receiptText = `*🧾 电子收据 (E-Receipt)*\n*${settings.shop_name || 'Gem Brow'}*\n------------------------\n📅 ${new Date().toLocaleDateString()}\n`;
+            items.forEach(i => receiptText += `${i.name}: RM ${i.price.toFixed(2)}\n`);
             receiptText += `------------------------\n`;
             if (hasSST && settings.show_sst_on_receipt) {
-                receiptText += `Subtotal: RM ${subTotal.toFixed(2)}\n`;
-                receiptText += `SST (${sstRate}%): RM ${sstAmount.toFixed(2)}\n`;
+                receiptText += `Subtotal: RM ${subTotal.toFixed(2)}\nSST (${sstRate}%): RM ${sstAmount.toFixed(2)}\n`;
                 if(settings.sst_id) receiptText += `(SST ID: ${settings.sst_id})\n`;
             }
-            receiptText += `*TOTAL: RM ${total.toFixed(2)}*\n`;
-            receiptText += `------------------------\n`;
-            receiptText += `Paid via: ${selectedMethod}\n`;
-            receiptText += `\nThank you for your support! ✨`;
+            receiptText += `*TOTAL: RM ${total.toFixed(2)}*\n------------------------\nPaid via: ${selectedMethod}\n\nThank you! ✨`;
 
-            // 4. 跳转 WhatsApp
             if(booking && booking.customerPhone) {
-                const url = `https://wa.me/${booking.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(receiptText)}`;
-                window.open(url, '_blank');
+                window.open(`https://wa.me/${booking.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(receiptText)}`, '_blank');
             } else {
-                alert("收款成功！(无客户电话，无法发送 WhatsApp)");
+                alert("收款成功！(无电话，无法发 WhatsApp，建议打印)");
             }
-            
             modal.remove();
-            renderApp(); // 刷新后台界面
+            renderApp();
         });
     };
 
@@ -4596,3 +4670,5 @@ function renderHistoryPage(config) {
 
 initApp();
 initGlobalWidgets();
+
+//TNG/DuitNow 二维码弹窗 [v1.0.1]
