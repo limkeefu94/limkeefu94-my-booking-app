@@ -1303,38 +1303,56 @@ function renderSettings(config) {
                 </div>
 
                 <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
-                    <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🖼️ 品牌 Logo 设置</h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
-                            <label class="mb-2 text-sm font-bold text-gray-600">🏠 登录页 Logo (大图)</label>
-                            <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
-                                 onclick="document.getElementById('logoLoginInput').click()">
-                                <img id="loginLogoPreviewImg" src="${discountSettings.logo_login || discountSettings.logo_url || ''}" class="w-full h-full object-contain" style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'block' : 'none'}">
-                                <span id="loginLogoPlaceholder" style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
-                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
-                                    <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
-                                </div>
-                            </div>
-                            <input type="file" id="logoLoginInput" accept="image/*" style="display: none;">
-                            <input type="hidden" id="logoLoginUrl" value="${discountSettings.logo_login || discountSettings.logo_url || ''}">
-                        </div>
+                  <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🖼️ 品牌 Logo 设置</h3>
+    
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
+                          <label class="mb-2 text-sm font-bold text-gray-600">🏠 登录页 Logo (大图)</label>
+            
+                          <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
+                               onclick="document.getElementById('logoLoginInput').click()">
+                
+                              <img id="loginLogoPreviewImg" 
+                                   src="${discountSettings.logo_login || discountSettings.logo_url || ''}" 
+                                   class="w-full h-full object-contain"
+                                   style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'block' : 'none'}">
+                
+                              <span id="loginLogoPlaceholder" style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
+                
+                              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
+                                  <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
+                              </div>
+                          </div>
 
-                        <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
-                            <label class="mb-2 text-sm font-bold text-gray-600">🔝 顶部菜单 Logo (小图)</label>
-                            <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
-                                 onclick="document.getElementById('logoHeaderInput').click()">
-                                <img id="headerLogoPreviewImg" src="${discountSettings.logo_header || ''}" class="w-full h-full object-contain" style="display: ${discountSettings.logo_header ? 'block' : 'none'}">
-                                <span id="headerLogoPlaceholder" style="display: ${discountSettings.logo_header ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
-                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
-                                    <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
-                                </div>
-                            </div>
-                            <input type="file" id="logoHeaderInput" accept="image/*" style="display: none;">
-                            <input type="hidden" id="logoHeaderUrl" value="${discountSettings.logo_header || ''}">
-                        </div>
-                    </div>
-                </div>
+                          <input type="file" id="logoLoginInput" accept="image/*" style="display: none;">
+                          <input type="hidden" id="logoLoginUrl" value="${discountSettings.logo_login || discountSettings.logo_url || ''}">
+                          <p class="text-xs text-gray-400">建议上传正方形 PNG/JPG</p>
+                      </div>
+
+                      <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
+                          <label class="mb-2 text-sm font-bold text-gray-600">🔝 顶部菜单 Logo (小图)</label>
+            
+                          <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
+                               onclick="document.getElementById('logoHeaderInput').click()">
+                
+                              <img id="headerLogoPreviewImg" 
+                                   src="${discountSettings.logo_header || ''}" 
+                                   class="w-full h-full object-contain"
+                                   style="display: ${discountSettings.logo_header ? 'block' : 'none'}">
+                     
+                              <span id="headerLogoPlaceholder" style="display: ${discountSettings.logo_header ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
+
+                              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
+                                  <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
+                              </div>
+                          </div>
+
+                          <input type="file" id="logoHeaderInput" accept="image/*" style="display: none;">
+                          <input type="hidden" id="logoHeaderUrl" value="${discountSettings.logo_header || ''}">
+                          <p class="text-xs text-gray-400">显示在网页左上角</p>
+                      </div>
+                  </div>
+             </div>
 
                 <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
                     <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🏢 店铺与商家信息</h3>
@@ -2159,63 +2177,23 @@ function attachEventListeners(config, services, bookings, posts) {
     });
 
     // === 6. Logo 上传事件 ===
-    document.getElementById('logoLoginInput')?.addEventListener('change', function(e) {
-        if (e.target.files[0]) {
-            compressImage(e.target.files[0], 800, 0.7).then(dataUrl => {
-                document.getElementById('logoLoginUrl').value = dataUrl;
-            });
-        }
+    document.getElementById('logoInput')?.addEventListener('change', function(e) {
+        handleImageUpload(e, 'logoPreview', 'logoPlaceholder', 'logoData');
     });
 
     // 👇 新增：TNG 二维码上传监听
     document.getElementById('tngQrInput')?.addEventListener('change', function(e) {
-        if (e.target.files[0]) {
-            showToast('📷 处理二维码中...');
-            compressImage(e.target.files[0], 600, 0.8).then(dataUrl => {
-                document.getElementById('tngQrUrl').value = dataUrl;
-                const img = document.getElementById('tngQrPreview');
-                const ph = document.getElementById('tngQrPlaceholder');
-                if (img) { img.src = dataUrl; img.style.display = 'block'; }
-                if (ph) { ph.style.display = 'none'; }
-                showToast('✅ 二维码已就绪');
-            });
-        }
+        handleImageUpload(e, 'tngQrPreview', 'tngQrPlaceholder', 'tngQrUrl');
     });
 
+    // 登录页 Logo
     document.getElementById('logoLoginInput')?.addEventListener('change', function(e) {
-        if (e.target.files[0]) {
-            showToast('📷 正在处理 Logo...');
-            compressImage(e.target.files[0], 800, 0.7).then(dataUrl => {
-                // 1. 存入隐藏的 value 供保存使用
-                document.getElementById('logoLoginUrl').value = dataUrl;
-                
-                // 2. 立即更新界面预览
-                const img = document.getElementById('loginLogoPreviewImg');
-                const ph = document.getElementById('loginLogoPlaceholder');
-                if (img) { img.src = dataUrl; img.style.display = 'block'; }
-                if (ph) { ph.style.display = 'none'; }
-                
-                showToast('✅ 登录页 Logo 已就绪 (记得点保存)');
-            });
-        }
+        handleImageUpload(e, 'loginLogoPreviewImg', 'loginLogoPlaceholder', 'logoLoginUrl');
     });
 
+    // 顶部 Logo
     document.getElementById('logoHeaderInput')?.addEventListener('change', function(e) {
-        if (e.target.files[0]) {
-            showToast('📷 正在处理 Logo...');
-            compressImage(e.target.files[0], 400, 0.8).then(dataUrl => { // 顶部Logo可以小一点
-                // 1. 存入隐藏 value
-                document.getElementById('logoHeaderUrl').value = dataUrl;
-                
-                // 2. 立即更新界面预览
-                const img = document.getElementById('headerLogoPreviewImg');
-                const ph = document.getElementById('headerLogoPlaceholder');
-                if (img) { img.src = dataUrl; img.style.display = 'block'; }
-                if (ph) { ph.style.display = 'none'; }
-                
-                showToast('✅ 顶部 Logo 已就绪 (记得点保存)');
-            });
-        }
+        handleImageUpload(e, 'headerLogoPreviewImg', 'headerLogoPlaceholder', 'logoHeaderUrl');
     });
 
     // === 7. 设置保存 ===
@@ -4662,6 +4640,40 @@ function renderHistoryPage(config) {
             </div>
         </div>
     `;
+}
+
+// ==========================================
+// 👇 图片上传通用工具函数 (放在文件最末尾)
+// ==========================================
+function handleImageUpload(event, imgId, placeholderId, inputId) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 这里复用你之前有的 compressImage 函数
+    // 如果没有 compressImage，就用简单的 FileReader
+    if (typeof compressImage === 'function') {
+        showToast('📷 处理图片中...');
+        compressImage(file, 800, 0.7).then(dataUrl => {
+            document.getElementById(inputId).value = dataUrl;
+            const img = document.getElementById(imgId);
+            const ph = document.getElementById(placeholderId);
+            if (img) { img.src = dataUrl; img.style.display = 'block'; }
+            if (ph) { ph.style.display = 'none'; }
+            showToast('✅ 图片已就绪');
+        });
+    } else {
+        // 后备方案 (如果没有压缩功能)
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const dataUrl = e.target.result;
+            document.getElementById(inputId).value = dataUrl;
+            const img = document.getElementById(imgId);
+            const ph = document.getElementById(placeholderId);
+            if (img) { img.src = dataUrl; img.style.display = 'block'; }
+            if (ph) { ph.style.display = 'none'; }
+        };
+        reader.readAsDataURL(file);
+    }
 }
 
 initApp();
