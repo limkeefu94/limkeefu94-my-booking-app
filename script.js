@@ -830,12 +830,30 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                         </div>
                     ` : `
                         <div class="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                            ${filteredBookings.map(booking => `
+                            ${filteredBookings.map(booking => {
+                                // 👇👇👇 新增：计算“后悔药”有效期 👇👇👇
+                                let canRevert = false;
+                                if (booking.status === 'completed') {
+                                    if (booking.completedAt) {
+                                        const completeTime = new Date(booking.completedAt).getTime();
+                                        const now = Date.now();
+                                        const diffMins = (now - completeTime) / 1000 / 60;
+                                        // ⏳ 设定限制：只有 30 分钟内可以撤回
+                                        if (diffMins <= 30) canRevert = true;
+                                    } else {
+                                        // 旧数据没有 completedAt，默认不允许撤回 (安全起见)
+                                        canRevert = false;
+                                    }
+                                }
+                                // 👆👆👆 计算结束 👆👆👆
+
+                                return `
                                    <div style="background: rgba(255, 255, 255, 0.95); padding: 20px; border-radius: 12px; border-left: 4px solid ${booking.status === 'pending' ? config.secondary_action_color : '#e5e7eb'}; shadow-sm transition-all hover:shadow-md">
                                       <div class="flex justify-between items-start">
                                          <div>
                                              <h3 style="font-weight: 700; color: ${config.text_color};">${booking.customerName}</h3>
                                              <p class="text-xs font-mono font-bold text-gray-400 mb-1">${booking.receiptNumber || '-'}</p>
+                                             
                                              <p class="text-sm opacity-80">📞 ${booking.customerPhone}</p>
                                              <p class="font-bold mt-1" style="color: ${config.primary_action_color};">💅 ${booking.serviceName}</p>
                                              <p class="text-sm mt-1">📅 ${booking.appointmentDate} ${booking.appointmentTime}</p>
@@ -858,16 +876,20 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                                                     <button class="cancelBookingBtn" data-id="${booking.id}" style="background: #ef4444; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px;">取消</button>
                                                 </div>
                                             ` : `
-                                                <div class="mt-1">
-                                                    <button class="revertBookingBtn" data-id="${booking.id}" style="border: 1px solid #9ca3af; color: #4b5563; padding: 4px 8px; border-radius: 6px; font-size: 12px; background: white;">
-                                                        ↩️ 恢复
-                                                    </button>
-                                                </div>
+                                                ${canRevert ? `
+                                                    <div class="mt-1 flex flex-col items-end">
+                                                        <button class="revertBookingBtn" data-id="${booking.id}" style="border: 1px solid #9ca3af; color: #4b5563; padding: 4px 8px; border-radius: 6px; font-size: 12px; background: white;">
+                                                            ↩️ 撤销完成
+                                                        </button>
+                                                        <span class="text-[10px] text-gray-400 mt-1">30分钟内有效</span>
+                                                    </div>
+                                                ` : ''}
                                             `}
                                         </div>
                                     </div>
                                 </div>
-                            `).join('')}
+                            `;
+                            }).join('')}
                         </div>
                     `}
                 </div>
@@ -4473,17 +4495,12 @@ function showCashierModal(config, booking = null) {
         // 确认收款 (原有逻辑)
         document.getElementById('confirmPayBtn')?.addEventListener('click', async () => {
             const total = items.reduce((sum, i) => sum + i.price, 0);
-            if (booking) await updateRecord(booking, { status: 'completed', paymentMethod: selectedMethod, actualPaid: total });
-            await createRecord({
-                type: 'sales_record',
-                date: new Date().toISOString().split('T')[0],
-                time: new Date().toLocaleTimeString(),
-                amount: total,
-                method: selectedMethod,
-                items: items,
-                customer: booking ? booking.customerName : 'Walk-in'
+            if (booking) await updateRecord(booking, { 
+            status: 'completed', 
+                paymentMethod: selectedMethod, 
+                actualPaid: total,
+                completedAt: new Date().toISOString() // 👈 补上这一句！有了它，后悔药才生效！
             });
-
             // 生成 WhatsApp
             const sstAmount = hasSST ? (total - (total / (1 + (sstRate / 100)))) : 0;
             const subTotal = total - sstAmount;
