@@ -214,32 +214,32 @@ function getDataByType(type) {
     return allData.filter(item => item.type === type);
 }
 
-createRecord: async (record) => {
-        if (allData.length >= 999) {
-            showToast('已达到最大记录数999');
-            return false;
-        }
-        isLoading = true;
-        renderApp();
-        
-        // 👇 v1.1.0 新增：自动注入租户ID (为未来 SaaS 铺路)
-        const recordWithTenant = {
-            ...record,
-            id: Date.now().toString(),
-            createdAt: new Date().toISOString(),
-            tenant_id: 'shop_gennie_001' // 👈 这一行价值千金！
-        };
-
-        const result = await window.dataSdk.create(recordWithTenant);
-        isLoading = false;
-        if (result.isOk) {
-            showToast('操作成功！');
-            return true;
-        } else {
-            showToast('操作失败，请重试');
-            return false;
-        }
+async function createRecord(record) { 
+    if (allData.length >= 999) {
+        showToast('已达到最大记录数999');
+        return false;
     }
+    isLoading = true;
+    renderApp();
+    
+    // 👇 v1.1.0 新增：自动注入租户ID (为未来 SaaS 铺路)
+    const recordWithTenant = {
+        ...record,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+        tenant_id: 'shop_gennie_001' // 👈 这一行价值千金！
+    };
+
+    const result = await window.dataSdk.create(recordWithTenant);
+    isLoading = false;
+    if (result.isOk) {
+        showToast('操作成功！');
+        return true;
+    } else {
+        showToast('操作失败，请重试');
+        return false;
+    }
+}
 
 async function updateRecord(record, updates) {
     isLoading = true;
@@ -2795,6 +2795,15 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
                 await updateRecord(customerAccount, { points: customerAccount.points - pointsUsed });
             }
             modal.remove();
+
+            const newBooking = {
+                id: Date.now().toString(), // 或者是刚才 createRecord 返回的 ID
+                serviceName: serviceName,
+                appointmentDate: targetDate,
+                appointmentTime: targetTime,
+                customerName: document.getElementById('customerName').value
+            };
+            showTicketModal(config, newBooking); 
         }
     });
 
@@ -4653,7 +4662,114 @@ function cleanPhoneNumber(phone) {
     return cleaned;
 }
 
+// ==========================================
+// 👇 v1.1.0 核心：粉色入场券弹窗 (Pink Ticket)
+// ==========================================
+function showTicketModal(config, booking) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-[60] p-4';
+    modal.style.background = 'rgba(0,0,0,0.85)'; //以此衬托粉色票根
+    
+    // 生成随机的座位号/票号 (模拟)
+    const ticketNo = 'VIP-' + booking.id.slice(-4);
+    const seatNo = ['A-01', 'B-06', 'V-88', 'S-09'][Math.floor(Math.random() * 4)];
+
+    modal.innerHTML = `
+        <div class="animate-fade-in-up w-full max-w-sm relative">
+            
+            <div id="ticketNode" style="background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(244, 114, 182, 0.4); position: relative;">
+                
+                <div style="background: linear-gradient(135deg, ${config.primary_action_color}, ${config.secondary_action_color}); padding: 24px; text-align: center; color: white; position: relative;">
+                    <div style="font-size: 12px; letter-spacing: 2px; opacity: 0.8; margin-bottom: 4px;">OFFICIAL TICKET</div>
+                    <h2 style="font-size: 24px; font-weight: 800; font-family: 'Playfair Display', serif;">${config.app_title}</h2>
+                    <div style="font-size: 12px; opacity: 0.9;">ADMIT ONE</div>
+
+                    <div style="position: absolute; bottom: -12px; left: -12px; width: 24px; height: 24px; background: rgba(0,0,0,0.85); border-radius: 50%;"></div>
+                    <div style="position: absolute; bottom: -12px; right: -12px; width: 24px; height: 24px; background: rgba(0,0,0,0.85); border-radius: 50%;"></div>
+                </div>
+
+                <div style="padding: 32px 24px; position: relative; background: #fff;">
+                    <div style="position: absolute; top: 0; left: 20px; right: 20px; border-top: 2px dashed #eee;"></div>
+
+                    <div class="text-center mb-6">
+                        <div style="font-size: 14px; color: #9ca3af; margin-bottom: 4px;">SERVICE</div>
+                        <div style="font-size: 20px; font-weight: 700; color: ${config.text_color};">${booking.serviceName}</div>
+                    </div>
+
+                    <div class="flex justify-between mb-6">
+                        <div class="text-center">
+                            <div style="font-size: 10px; color: #9ca3af; letter-spacing: 1px;">DATE</div>
+                            <div style="font-size: 16px; font-weight: 700;">${booking.appointmentDate}</div>
+                        </div>
+                        <div class="text-center">
+                            <div style="font-size: 10px; color: #9ca3af; letter-spacing: 1px;">TIME</div>
+                            <div style="font-size: 16px; font-weight: 700;">${booking.appointmentTime}</div>
+                        </div>
+                        <div class="text-center">
+                            <div style="font-size: 10px; color: #9ca3af; letter-spacing: 1px;">SEAT</div>
+                            <div style="font-size: 16px; font-weight: 700; color: ${config.secondary_action_color};">${seatNo}</div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mb-6">
+                        <div style="font-size: 10px; color: #9ca3af; letter-spacing: 1px;">GUEST</div>
+                        <div style="font-size: 18px; font-weight: 700;">${booking.customerName}</div>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-center opacity-80">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${booking.id}" style="width: 80px; height: 80px; margin-bottom: 8px;">
+                        <div style="font-family: monospace; letter-spacing: 4px; font-size: 12px;">${ticketNo}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex flex-col gap-3">
+                <button id="saveTicketBtn" class="w-full py-3 rounded-xl font-bold text-white shadow-lg text-sm bg-pink-500 hover:bg-pink-600 transition-all">
+                    📸 保存到相册 (Screenshot)
+                </button>
+                <button id="closeTicketBtn" class="w-full py-3 rounded-xl font-bold text-white border border-white/30 hover:bg-white/10 transition-all text-sm">
+                    关闭
+                </button>
+            </div>
+            
+            <p class="text-center text-white/50 text-xs mt-4">请截图保存凭证，凭此票入场</p>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // 绑定事件
+    document.getElementById('closeTicketBtn').addEventListener('click', () => {
+        modal.remove();
+        renderApp(); // 刷新页面显示 My Bookings
+    });
+
+    // 截图保存逻辑
+    document.getElementById('saveTicketBtn').addEventListener('click', () => {
+        const btn = document.getElementById('saveTicketBtn');
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ 生成中...";
+        
+        if (typeof html2canvas !== 'undefined') {
+            html2canvas(document.getElementById('ticketNode'), {
+                backgroundColor: null,
+                scale: 2 // 高清截图
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Ticket_${booking.customerName}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                btn.innerText = "✅ 已保存!";
+                setTimeout(() => btn.innerText = originalText, 2000);
+            });
+        } else {
+            alert("请直接使用手机截图功能保存哦！📸");
+            btn.innerText = originalText;
+        }
+    });
+}
+
 initApp();
 initGlobalWidgets();
 
-//Gem Brow beauty [v1.1.1]
+//Gem Brow beauty [v1.1.0]
