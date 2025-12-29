@@ -784,9 +784,11 @@ function renderOwnerView(config, services, bookings, posts, customers) {
         return b.status === filterStatus;
     }).filter(b => {
         if (!searchQuery) return true;
+        const matchReceipt = b.receiptNumber && b.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase());
         return b.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             b.customerPhone.includes(searchQuery) ||
-            b.serviceName.toLowerCase().includes(searchQuery.toLowerCase());
+            b.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            matchReceipt;
     });
     
     // 4. 筛选逻辑 - 订单
@@ -833,6 +835,7 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                                       <div class="flex justify-between items-start">
                                          <div>
                                              <h3 style="font-weight: 700; color: ${config.text_color};">${booking.customerName}</h3>
+                                             <p class="text-xs font-mono font-bold text-gray-400 mb-1">${booking.receiptNumber || '-'}</p>
                                              <p class="text-sm opacity-80">📞 ${booking.customerPhone}</p>
                                              <p class="font-bold mt-1" style="color: ${config.primary_action_color};">💅 ${booking.serviceName}</p>
                                              <p class="text-sm mt-1">📅 ${booking.appointmentDate} ${booking.appointmentTime}</p>
@@ -2732,47 +2735,52 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
     // 提交逻辑
     document.getElementById('bookingForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // 1. 先获取基础信息
         const finalName = document.getElementById('customerName').value;
         const targetDate = document.getElementById('appointmentDate').value;
         const targetTime = document.getElementById('appointmentTime').value;
         
-        // 防撞车检测
+        // --- 防撞车检测 (保持你原有的逻辑，不要删) ---
         const [h, m] = targetTime.split(':').map(Number);
         const newStart = h * 60 + m;
         const newEnd = newStart + duration;
-
         const existingBookings = getDataByType('booking').filter(b => 
             b.appointmentDate === targetDate && b.status !== 'cancelled'
         );
-
         let hasConflict = false;
         for (let b of existingBookings) {
             const [bh, bm] = b.appointmentTime.split(':').map(Number);
             const existStart = bh * 60 + bm;
             const existDuration = b.duration || 60; 
             const existEnd = existStart + existDuration;
-
             if (newStart < existEnd && newEnd > existStart) {
                 hasConflict = true;
                 break;
             }
         }
-
         if (hasConflict) {
             showToast('❌ 该时段忙碌或休息中，请换个时间');
             return;
         }
+        // ------------------------------------------
 
+        // 👇👇👇【重点】你刚才漏掉的就是这一段！👇👇👇
+        // 必须先算出 finalPriceNum，下面的 createRecord 才能用它
         const pointsUsed = (customerAccount && showRewards) ? (parseInt(document.getElementById('pointsToUse')?.value) || 0) : 0;
-        const finalPrice = Math.max(0, parseFloat(servicePrice) - (pointsUsed / pointsToRmRate));
+        const basePrice = parseFloat(servicePrice); // 确保是数字
+        const discountAmount = pointsUsed / pointsToRmRate;
+        
+        // 这就是 finalPriceNum 的出生地：
+        const finalPriceNum = Math.max(0, basePrice - discountAmount);
+        // 👆👆👆【重点结束】👆👆👆
 
-        if (customerAccount && pointsUsed > availablePoints) {
-            showToast('积分不足');
-            return;
-        }
+        // 生成流水单号
+        const newReceiptNo = generateReceiptNumber(); 
 
         const success = await createRecord({
             type: 'booking',
+            receiptNumber: newReceiptNo,
             customerName: finalName,
             customerPhone: document.getElementById('customerPhone').value,
             serviceId: serviceId,
@@ -2781,24 +2789,29 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
             appointmentTime: targetTime,
             duration: duration,
             status: 'pending',
-            totalAmount: parseFloat(finalPrice.toFixed(2)), // 假设上面计算了 finalPrice
-            points_used: pointsUsed || 0 // 假设上面计算了 pointsUsed
+            
+            // 现在这里就不会报错了，因为上面已经定义了 finalPriceNum
+            totalAmount: parseFloat(finalPriceNum.toFixed(2)), 
+            points_used: pointsUsed
         });
 
         if (success) {
             if (customerAccount && pointsUsed > 0) {
                 await updateRecord(customerAccount, { points: customerAccount.points - pointsUsed });
             }
-            modal.remove(); // 关掉旧窗
+            
+            modal.remove(); 
 
-            // 👇👇👇 核心：这里呼叫粉色门票 👇👇👇
+            // 呼叫粉色门票
             const newBooking = {
                 id: Date.now().toString(),
+                receiptNumber: newReceiptNo,
                 serviceName: serviceName,
                 appointmentDate: targetDate,
                 appointmentTime: targetTime,
-                customerName: finalName // 👈 【修复关键】这里直接用变量，不要再去 getElementById 了
+                customerName: finalName
             };
+            
             if (typeof showTicketModal === 'function') {
                 showTicketModal(config, newBooking); 
             }
@@ -4666,11 +4679,10 @@ function cleanPhoneNumber(phone) {
 function showTicketModal(config, booking) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-[60] p-4';
-    modal.style.background = 'rgba(0,0,0,0.85)'; //以此衬托粉色票根
+    modal.style.background = 'rgba(0,0,0,0.85)';
     
-    // 生成随机的座位号/票号 (模拟)
-    const ticketNo = 'VIP-' + booking.id.slice(-4);
-    const seatNo = ['A-01', 'B-06', 'V-88', 'S-09'][Math.floor(Math.random() * 4)];
+    // 👇 使用刚才生成的单号，如果没有就显示一个临时的
+    const displayNo = booking.receiptNumber || ('MY-' + booking.id.slice(-6));
 
     modal.innerHTML = `
         <div class="animate-fade-in-up w-full max-w-sm relative">
@@ -4703,10 +4715,11 @@ function showTicketModal(config, booking) {
                             <div style="font-size: 10px; color: #9ca3af; letter-spacing: 1px;">TIME</div>
                             <div style="font-size: 16px; font-weight: 700;">${booking.appointmentTime}</div>
                         </div>
-                        <div class="text-center">
-                            <div style="font-size: 10px; color: #9ca3af; letter-spacing: 1px;">SEAT</div>
-                            <div style="font-size: 16px; font-weight: 700; color: ${config.secondary_action_color};">${seatNo}</div>
-                        </div>
+                    </div>
+                    
+                    <div class="text-center mb-6 p-2 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                        <div style="font-size: 10px; color: #9ca3af; letter-spacing: 1px;">RECEIPT NO</div>
+                        <div style="font-size: 18px; font-weight: 700; color: ${config.primary_action_color}; font-family: monospace;">${displayNo}</div>
                     </div>
 
                     <div class="text-center mb-6">
@@ -4715,9 +4728,8 @@ function showTicketModal(config, booking) {
                     </div>
 
                     <div class="flex flex-col items-center justify-center opacity-80">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${booking.id}" style="width: 80px; height: 80px; margin-bottom: 8px;">
-                        <div style="font-family: monospace; letter-spacing: 4px; font-size: 12px;">${ticketNo}</div>
-                    </div>
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${displayNo}" style="width: 80px; height: 80px; margin-bottom: 8px;">
+                        </div>
                 </div>
             </div>
 
@@ -4730,19 +4742,17 @@ function showTicketModal(config, booking) {
                 </button>
             </div>
             
-            <p class="text-center text-white/50 text-xs mt-4">请截图保存凭证，凭此票入场</p>
+            <p class="text-center text-white/50 text-xs mt-4">请截图保存凭证，凭此单号核销</p>
         </div>
     `;
 
     document.body.appendChild(modal);
 
-    // 绑定事件
     document.getElementById('closeTicketBtn').addEventListener('click', () => {
         modal.remove();
-        renderApp(); // 刷新页面显示 My Bookings
+        renderApp();
     });
 
-    // 截图保存逻辑
     document.getElementById('saveTicketBtn').addEventListener('click', () => {
         const btn = document.getElementById('saveTicketBtn');
         const originalText = btn.innerText;
@@ -4751,10 +4761,10 @@ function showTicketModal(config, booking) {
         if (typeof html2canvas !== 'undefined') {
             html2canvas(document.getElementById('ticketNode'), {
                 backgroundColor: null,
-                scale: 2 // 高清截图
+                scale: 2
             }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = `Ticket_${booking.customerName}.png`;
+                link.download = `Ticket_${displayNo}.png`;
                 link.href = canvas.toDataURL();
                 link.click();
                 btn.innerText = "✅ 已保存!";
@@ -4767,7 +4777,25 @@ function showTicketModal(config, booking) {
     });
 }
 
+// ==========================================
+// 👇 v1.1.1 新增：生成收据单号 (MY-YYMM0001)
+// ==========================================
+function generateReceiptNumber() {
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2); // 25
+    const mm = (now.getMonth() + 1).toString().padStart(2, '0'); // 01
+    const prefix = `MY-${yy}${mm}`;
+    
+    // 算出这个月已经开了多少单，然后 +1
+    // 注意：这里我们算的是所有 Booking，不管状态是 pending 还是 completed，只要占了坑就算一单
+    const bookings = getDataByType('booking');
+    const monthlyCount = bookings.filter(b => b.receiptNumber && b.receiptNumber.startsWith(prefix)).length;
+    
+    const seq = (monthlyCount + 1).toString().padStart(4, '0'); // 0001
+    return `${prefix}${seq}`;
+}
+
 initApp();
 initGlobalWidgets();
 
-//Gem Brow beauty [v1.1.0]
+//Gem Brow beauty [v1.1.1]
