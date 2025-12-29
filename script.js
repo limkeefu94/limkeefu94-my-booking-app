@@ -214,27 +214,32 @@ function getDataByType(type) {
     return allData.filter(item => item.type === type);
 }
 
-async function createRecord(record) {
-    if (allData.length >= 999) {
-        showToast('已达到最大记录数999');
-        return false;
+createRecord: async (record) => {
+        if (allData.length >= 999) {
+            showToast('已达到最大记录数999');
+            return false;
+        }
+        isLoading = true;
+        renderApp();
+        
+        // 👇 v1.1.0 新增：自动注入租户ID (为未来 SaaS 铺路)
+        const recordWithTenant = {
+            ...record,
+            id: Date.now().toString(),
+            createdAt: new Date().toISOString(),
+            tenant_id: 'shop_gennie_001' // 👈 这一行价值千金！
+        };
+
+        const result = await window.dataSdk.create(recordWithTenant);
+        isLoading = false;
+        if (result.isOk) {
+            showToast('操作成功！');
+            return true;
+        } else {
+            showToast('操作失败，请重试');
+            return false;
+        }
     }
-    isLoading = true;
-    renderApp();
-    const result = await window.dataSdk.create({
-        ...record,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString()
-    });
-    isLoading = false;
-    if (result.isOk) {
-        showToast('操作成功！');
-        return true;
-    } else {
-        showToast('操作失败，请重试');
-        return false;
-    }
-}
 
 async function updateRecord(record, updates) {
     isLoading = true;
@@ -1267,8 +1272,9 @@ function renderCustomersManagement(config, customers, bookings) {
                 </div>
             `;
 }
+
 // ==========================================
-// 👇 设置页面 (加入商家信息、社交链接、备份按钮)
+// 👇 设置页面 (v1.1.0 升级版：底部吸附栏 + UI修复)
 // ==========================================
 function renderSettings(config) {
     const discountSettings = getDiscountSettings();
@@ -1276,9 +1282,8 @@ function renderSettings(config) {
     const currentOwner = owners.length > 0 ? owners[0] : ownerCredentials;
 
     return `
-        <div class="pb-20">
-            <h2 style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color}; margin-bottom: 24px;">
-                ⚙️ 系统设置
+        <div class="pb-32"> <h2 style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color}; margin-bottom: 24px;">
+                ⚙️ 系统设置 (v1.1.0)
             </h2>
             
             <form id="discountSettingsForm">
@@ -1299,60 +1304,41 @@ function renderSettings(config) {
                                 class="w-full px-3 py-2 rounded border focus:outline-none focus:border-red-500 bg-white font-bold text-gray-700">
                         </div>
                     </div>
-                    <p class="text-xs text-red-400 mt-2">* 修改后系统将自动生效，下次请使用新账号登录。</p>
                 </div>
 
                 <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
-                  <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🖼️ 品牌 Logo 设置</h3>
-    
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
-                          <label class="mb-2 text-sm font-bold text-gray-600">🏠 登录页 Logo (大图)</label>
-            
-                          <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
-                               onclick="document.getElementById('logoLoginInput').click()">
-                
-                              <img id="loginLogoPreviewImg" 
-                                   src="${discountSettings.logo_login || discountSettings.logo_url || ''}" 
-                                   class="w-full h-full object-contain"
-                                   style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'block' : 'none'}">
-                
-                              <span id="loginLogoPlaceholder" style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
-                
-                              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
-                                  <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
-                              </div>
-                          </div>
+                    <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🖼️ 品牌 Logo 设置</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
+                            <label class="mb-2 text-sm font-bold text-gray-600">🏠 登录页 Logo (大图)</label>
+                            <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
+                                 onclick="document.getElementById('logoLoginInput').click()">
+                                <img id="loginLogoPreviewImg" src="${discountSettings.logo_login || discountSettings.logo_url || ''}" class="w-full h-full object-contain" style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'block' : 'none'}">
+                                <span id="loginLogoPlaceholder" style="display: ${discountSettings.logo_login || discountSettings.logo_url ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
+                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
+                                    <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
+                                </div>
+                            </div>
+                            <input type="file" id="logoLoginInput" accept="image/*" style="display: none;">
+                            <input type="hidden" id="logoLoginUrl" value="${discountSettings.logo_login || discountSettings.logo_url || ''}">
+                        </div>
 
-                          <input type="file" id="logoLoginInput" accept="image/*" style="display: none;">
-                          <input type="hidden" id="logoLoginUrl" value="${discountSettings.logo_login || discountSettings.logo_url || ''}">
-                          <p class="text-xs text-gray-400">建议上传正方形 PNG/JPG</p>
-                      </div>
-
-                      <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
-                          <label class="mb-2 text-sm font-bold text-gray-600">🔝 顶部菜单 Logo (小图)</label>
-            
-                          <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
-                               onclick="document.getElementById('logoHeaderInput').click()">
-                
-                              <img id="headerLogoPreviewImg" 
-                                   src="${discountSettings.logo_header || ''}" 
-                                   class="w-full h-full object-contain"
-                                   style="display: ${discountSettings.logo_header ? 'block' : 'none'}">
-                     
-                              <span id="headerLogoPlaceholder" style="display: ${discountSettings.logo_header ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
-
-                              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
-                                  <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
-                              </div>
-                          </div>
-
-                          <input type="file" id="logoHeaderInput" accept="image/*" style="display: none;">
-                          <input type="hidden" id="logoHeaderUrl" value="${discountSettings.logo_header || ''}">
-                          <p class="text-xs text-gray-400">显示在网页左上角</p>
-                      </div>
-                  </div>
-             </div>
+                        <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-pink-300 transition-colors">
+                            <label class="mb-2 text-sm font-bold text-gray-600">🔝 顶部菜单 Logo (小图)</label>
+                            <div class="w-32 h-32 mb-3 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-gray-100 cursor-pointer relative group"
+                                 onclick="document.getElementById('logoHeaderInput').click()">
+                                <img id="headerLogoPreviewImg" src="${discountSettings.logo_header || ''}" class="w-full h-full object-contain" style="display: ${discountSettings.logo_header ? 'block' : 'none'}">
+                                <span id="headerLogoPlaceholder" style="display: ${discountSettings.logo_header ? 'none' : 'block'}" class="text-4xl opacity-20">➕</span>
+                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
+                                    <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 bg-white px-2 py-1 rounded-full shadow-sm">点击更换</span>
+                                </div>
+                            </div>
+                            <input type="file" id="logoHeaderInput" accept="image/*" style="display: none;">
+                            <input type="hidden" id="logoHeaderUrl" value="${discountSettings.logo_header || ''}">
+                        </div>
+                    </div>
+                </div>
 
                 <div class="mb-6 p-6 rounded-2xl bg-white shadow-sm">
                     <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2">🏢 店铺与商家信息</h3>
@@ -1364,8 +1350,11 @@ function renderSettings(config) {
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                          <div>
-                            <label class="block mb-1 text-sm font-bold text-green-600">WhatsApp (60xxxx)</label>
-                            <input type="text" id="waNumber" value="${discountSettings.wa_number || ''}" class="w-full px-3 py-2 rounded border border-green-200 bg-green-50">
+                            <label class="block mb-1 text-sm font-bold text-green-600">WhatsApp (会自动格式化)</label>
+                            <input type="text" id="waNumber" value="${discountSettings.wa_number || ''}" 
+                                onchange="this.value = cleanPhoneNumber(this.value)"
+                                placeholder="e.g. 0123456789"
+                                class="w-full px-3 py-2 rounded border border-green-200 bg-green-50">
                         </div>
                         <div>
                             <label class="block mb-1 text-sm font-bold text-gray-600">SSM 注册号</label>
@@ -1380,21 +1369,21 @@ function renderSettings(config) {
 
                     <div class="mb-4">
                         <label class="block mb-1 text-sm font-bold text-gray-600">Google Map 导航链接</label>
-                        <input type="text" id="mapLink" value="${discountSettings.map_link || ''}" placeholder="https://maps.google.com/..." class="w-full px-3 py-2 rounded border">
+                        <input type="text" id="mapLink" value="${discountSettings.map_link || ''}" placeholder="http://googleusercontent.com/maps.google.com/..." class="w-full px-3 py-2 rounded border">
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block mb-1 text-sm font-bold text-blue-800">Facebook 链接</label>
-                            <input type="text" id="fbLink" value="${discountSettings.fb_link || ''}" placeholder="https://facebook.com/..." class="w-full px-3 py-2 rounded border">
+                            <input type="text" id="fbLink" value="${discountSettings.fb_link || ''}" class="w-full px-3 py-2 rounded border">
                         </div>
                         <div>
                             <label class="block mb-1 text-sm font-bold text-pink-600">Instagram 链接</label>
-                            <input type="text" id="igLink" value="${discountSettings.ig_link || ''}" placeholder="https://instagram.com/..." class="w-full px-3 py-2 rounded border">
+                            <input type="text" id="igLink" value="${discountSettings.ig_link || ''}" class="w-full px-3 py-2 rounded border">
                         </div>
                         <div>
                             <label class="block mb-1 text-sm font-bold text-black">TikTok 链接</label>
-                            <input type="text" id="tiktokLink" value="${discountSettings.tiktok_link || ''}" placeholder="https://tiktok.com/..." class="w-full px-3 py-2 rounded border">
+                            <input type="text" id="tiktokLink" value="${discountSettings.tiktok_link || ''}" class="w-full px-3 py-2 rounded border">
                         </div>
                     </div>
                 </div>
@@ -1413,13 +1402,11 @@ function renderSettings(config) {
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block mb-1 text-sm font-bold text-gray-600">SST 税率 (%)</label>
-                            <input type="number" id="sstRate" value="${discountSettings.sst_rate || 6}" placeholder="6"
-                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-blue-500">
+                            <input type="number" id="sstRate" value="${discountSettings.sst_rate || 6}" class="w-full px-3 py-2 rounded border">
                         </div>
                         <div>
-                            <label class="block mb-1 text-sm font-bold text-gray-600">SST 注册号 (ID)</label>
-                            <input type="text" id="sstID" value="${discountSettings.sst_id || ''}" placeholder="W10-xxxx"
-                                class="w-full px-3 py-2 rounded border focus:outline-none focus:border-blue-500">
+                            <label class="block mb-1 text-sm font-bold text-gray-600">SST 注册号</label>
+                            <input type="text" id="sstID" value="${discountSettings.sst_id || ''}" class="w-full px-3 py-2 rounded border">
                         </div>
                     </div>
 
@@ -1427,10 +1414,9 @@ function renderSettings(config) {
                         <span class="font-bold text-sm text-gray-600">在收据上显示 SST 金额?</span>
                         <input type="checkbox" id="showSSTOnReceipt" ${discountSettings.show_sst_on_receipt ? 'checked' : ''} class="w-5 h-5 accent-blue-600">
                     </div>
-                    <p class="text-xs text-gray-400 mt-2">* 采用【内扣模式】：标价已含税，系统自动从总额中计算税金。</p>
-                
+
                     <div class="mt-6 pt-6 border-t border-blue-200">
-                        <label class="block mb-2 text-sm font-bold text-gray-700">TNG / DuitNow 收款码 (QR Code)</label>
+                        <label class="block mb-2 text-sm font-bold text-gray-700">TNG / DuitNow 收款码</label>
                         <div class="flex items-center gap-4">
                             <div class="w-24 h-24 bg-white rounded-lg border-2 border-dashed border-blue-300 flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-colors overflow-hidden relative group"
                                  onclick="document.getElementById('tngQrInput').click()">
@@ -1440,10 +1426,6 @@ function renderSettings(config) {
                                     <span class="text-[10px] text-white bg-black bg-opacity-50 px-2 py-1 rounded-full opacity-0 group-hover:opacity-100">更换</span>
                                 </div>
                             </div>
-                            <div class="flex-1">
-                                <p class="text-xs text-gray-500 mb-1">顾客选择 TNG 支付时，点击图标可弹出此二维码。</p>
-                                <p class="text-xs text-blue-500">建议上传正方形的 TNG 或 DuitNow 二维码图片。</p>
-                            </div>
                             <input type="file" id="tngQrInput" accept="image/*" style="display: none;">
                             <input type="hidden" id="tngQrUrl" value="${discountSettings.tng_qr_url || ''}">
                         </div>
@@ -1452,49 +1434,19 @@ function renderSettings(config) {
 
                 <div class="mb-6 p-6 rounded-2xl bg-purple-50 border-2 border-purple-100 shadow-sm">
                     <h3 class="mb-4 font-bold text-lg text-purple-800 border-b border-purple-200 pb-2">⭐ 积分与会员等级</h3>
-                    
                     <div class="flex items-center justify-between mb-6">
                         <span class="font-bold text-gray-700">启用积分系统</span>
                         <input type="checkbox" id="enableRewards" ${discountSettings.enable_rewards !== false ? 'checked' : ''} class="w-5 h-5 accent-purple-500">
                     </div>
-
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block mb-1 text-xs font-bold text-purple-600">铜牌会员积分</label>
-                            <input type="number" id="bronzePoints" value="${discountSettings.bronze_points || 0}" class="w-full px-3 py-2 rounded border focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-xs font-bold text-purple-600">铜牌会员折扣 (%)</label>
-                            <input type="number" id="bronzeDiscount" value="${discountSettings.bronze_discount || 0}" class="w-full px-3 py-2 rounded border focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-xs font-bold text-gray-600">银牌会员积分</label>
-                            <input type="number" id="silverPoints" value="${discountSettings.silver_points || 100}" class="w-full px-3 py-2 rounded border focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-xs font-bold text-gray-600">银牌会员折扣 (%)</label>
-                            <input type="number" id="silverDiscount" value="${discountSettings.silver_discount || 5}" class="w-full px-3 py-2 rounded border focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-xs font-bold text-yellow-600">金牌会员积分</label>
-                            <input type="number" id="goldPoints" value="${discountSettings.gold_points || 300}" class="w-full px-3 py-2 rounded border focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-xs font-bold text-yellow-600">金牌会员折扣 (%)</label>
-                            <input type="number" id="goldDiscount" value="${discountSettings.gold_discount || 10}" class="w-full px-3 py-2 rounded border focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-xs font-bold text-cyan-600">白金会员积分</label>
-                            <input type="number" id="platinumPoints" value="${discountSettings.platinum_points || 600}" class="w-full px-3 py-2 rounded border focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-xs font-bold text-cyan-600">白金会员折扣 (%)</label>
-                            <input type="number" id="platinumDiscount" value="${discountSettings.platinum_discount || 15}" class="w-full px-3 py-2 rounded border focus:border-purple-500">
-                        </div>
+                        <div><label class="block text-xs font-bold text-purple-600">铜牌积分/折扣</label><div class="flex gap-2"><input type="number" id="bronzePoints" value="${discountSettings.bronze_points||0}" class="w-1/2 p-2 rounded border"><input type="number" id="bronzeDiscount" value="${discountSettings.bronze_discount||0}" class="w-1/2 p-2 rounded border"></div></div>
+                        <div><label class="block text-xs font-bold text-gray-600">银牌积分/折扣</label><div class="flex gap-2"><input type="number" id="silverPoints" value="${discountSettings.silver_points||100}" class="w-1/2 p-2 rounded border"><input type="number" id="silverDiscount" value="${discountSettings.silver_discount||5}" class="w-1/2 p-2 rounded border"></div></div>
+                        <div><label class="block text-xs font-bold text-yellow-600">金牌积分/折扣</label><div class="flex gap-2"><input type="number" id="goldPoints" value="${discountSettings.gold_points||300}" class="w-1/2 p-2 rounded border"><input type="number" id="goldDiscount" value="${discountSettings.gold_discount||10}" class="w-1/2 p-2 rounded border"></div></div>
+                        <div><label class="block text-xs font-bold text-cyan-600">白金积分/折扣</label><div class="flex gap-2"><input type="number" id="platinumPoints" value="${discountSettings.platinum_points||600}" class="w-1/2 p-2 rounded border"><input type="number" id="platinumDiscount" value="${discountSettings.platinum_discount||15}" class="w-1/2 p-2 rounded border"></div></div>
                     </div>
                     <div>
                         <label class="block mb-1 text-xs font-bold text-gray-600">积分兑换比 (10 积分 = ? RM)</label>
-                        <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}" class="w-full px-3 py-2 rounded border focus:border-purple-500">
+                        <input type="number" id="pointsToRmRate" value="${discountSettings.points_to_rm_rate || 10}" class="w-full px-3 py-2 rounded border">
                     </div>
                 </div>
 
@@ -1506,19 +1458,23 @@ function renderSettings(config) {
                     </div>
                 </div>
 
-                <button type="submit" class="w-full py-4 rounded-xl font-bold text-white shadow-lg mb-8" style="background: ${config.primary_action_color};">
-                    💾 保存所有设置
-                </button>
-            </form>
-
-            <div class="mb-12 p-6 rounded-2xl bg-gray-100 border-2 border-dashed border-gray-300">
-                <h3 class="mb-2 font-bold text-gray-700">💾 数据备份</h3>
-                <div class="flex gap-4">
-                    <button type="button" onclick="exportData()" class="flex-1 py-3 rounded-lg bg-gray-600 text-white font-bold">⬇️ 导出备份</button>
-                    <button type="button" onclick="document.getElementById('importFile').click()" class="flex-1 py-3 rounded-lg bg-white border font-bold">⬆️ 导入恢复</button>
-                    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(this)">
+                <div class="mb-6 p-6 rounded-2xl bg-gray-100 border-2 border-dashed border-gray-300">
+                    <h3 class="mb-2 font-bold text-gray-700">💾 数据备份</h3>
+                    <div class="flex gap-4">
+                        <button type="button" onclick="exportData()" class="flex-1 py-3 rounded-lg bg-gray-600 text-white font-bold">⬇️ 导出</button>
+                        <button type="button" onclick="document.getElementById('importFile').click()" class="flex-1 py-3 rounded-lg bg-white border font-bold">⬆️ 恢复</button>
+                        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(this)">
+                    </div>
                 </div>
-            </div>         
+
+                <div class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur shadow-[0_-4px_20px_rgba(0,0,0,0.1)] p-4 flex gap-4 items-center justify-center z-40 border-t border-gray-100">
+                    
+                    <button type="submit" class="w-full max-w-md py-4 rounded-xl font-bold text-white shadow-lg text-lg transform active:scale-95 transition-transform flex items-center justify-center gap-2" 
+                        style="background: ${config.primary_action_color};">
+                        <span>💾 保存所有设置</span>
+                    </button>
+                </div>
+                </form>     
      </div>
     `;
 }
@@ -4676,7 +4632,28 @@ function handleImageUpload(event, imgId, placeholderId, inputId) {
     }
 }
 
+// ==========================================
+// 👇 v1.1.0 新增：手机号清洗工具 (601xxxx)
+// ==========================================
+function cleanPhoneNumber(phone) {
+    if (!phone) return '';
+    // 1. 去掉所有非数字字符 (空格、横杠、括号)
+    let cleaned = phone.replace(/\D/g, '');
+    
+    // 2. 如果是 01 开头，替换为 601
+    if (cleaned.startsWith('01')) {
+        cleaned = '6' + cleaned;
+    }
+    
+    // 3. 如果没带 60，且是 1 开头，补上 60 (防呆)
+    if (cleaned.startsWith('1')) {
+        cleaned = '60' + cleaned;
+    }
+
+    return cleaned;
+}
+
 initApp();
 initGlobalWidgets();
 
-//TNG/DuitNow 二维码弹窗 [v1.0.1]
+//Gem Brow beauty [v1.1.1]
