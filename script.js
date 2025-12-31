@@ -1007,28 +1007,41 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                                     </div>
                                     
                                     <div class="bg-gray-50 p-2 rounded text-sm mb-3">
-                                        ${order.items.map(item => `
-                                            <div class="flex justify-between mb-1">
-                                                <span>${item.name} x${item.quantity}</span>
-                                                <span>RM${(item.price * item.quantity).toFixed(2)}</span>
+                                        ${order.items.map((item, idx) => `
+                                            <div class="flex justify-between items-center mb-2 pb-2 border-b border-gray-100 last:border-0 last:mb-0">
+                                                <div class="flex-1">
+                                                    <span class="font-bold text-gray-700">${item.name}</span>
+                                                    <div class="text-xs text-gray-400">RM${item.price}</div>
+                                                </div>
+                                                
+                                                ${order.status === 'pending' ? `
+                                                    <div class="flex items-center border bg-white rounded-md mx-2">
+                                                        <button onclick="window.adjustOrderQty('${order.id}', ${idx}, -1)" class="px-2 py-1 text-gray-500 hover:text-red-500 font-bold">-</button>
+                                                        <span class="px-2 text-xs font-bold w-6 text-center">${item.quantity}</span>
+                                                        <button onclick="window.adjustOrderQty('${order.id}', ${idx}, 1)" class="px-2 py-1 text-gray-500 hover:text-green-500 font-bold">+</button>
+                                                    </div>
+                                                ` : `
+                                                    <span class="font-bold text-gray-500 mr-4">x${item.quantity}</span>
+                                                `}
+                                                
+                                                <span class="font-mono text-gray-700">RM${(item.price * item.quantity).toFixed(2)}</span>
                                             </div>
                                         `).join('')}
-                                        <div class="border-t pt-1 mt-1 flex justify-between font-bold">
+                                        <div class="border-t pt-2 mt-2 flex justify-between font-bold text-base">
                                             <span>Total</span>
-                                            <span>RM${order.totalAmount}</span>
+                                            <span style="color: ${config.primary_action_color};">RM${parseFloat(order.totalAmount).toFixed(2)}</span>
                                         </div>
                                     </div>
 
                                     ${order.status === 'pending' ? `
                                         <div class="flex gap-2">
-                                            <button class="completeOrderBtn flex-1 py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity" 
-                                                data-id="${order.id}"
+                                            <button onclick="window.completeOrderWithStock('${order.id}')" 
+                                                class="flex-1 py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity shadow-md" 
                                                 style="background: #10b981; color: white;">
-                                                ✅ 发货/完成
+                                                ✅ 扣库存并完成
                                             </button>
-                                            <button class="cancelOrderBtn flex-1 py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity" 
-                                                data-id="${order.id}"
-                                                style="background: #ef4444; color: white;">
+                                            <button class="cancelOrderBtn flex-1 py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity border border-red-200 text-red-500 hover:bg-red-50" 
+                                                data-id="${order.id}">
                                                 ❌ 取消订单
                                             </button>
                                         </div>
@@ -1070,25 +1083,55 @@ function renderOwnerView(config, services, bookings, posts, customers) {
 
             <div class="mb-12">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-lg">商品库存配置</h3>
-                    <button id="addProductBtn" class="px-4 py-2 rounded bg-gray-800 text-white text-sm">+ 上架商品</button>
+                    <h3 class="font-bold text-lg">🛍️ 商品库存配置</h3>
+                    <button id="addProductBtn" class="px-4 py-2 rounded bg-gray-800 text-white text-sm shadow-md hover:bg-black transition-colors">
+                        + 上架商品
+                    </button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${products.map(product => `
-                        <div class="bg-white p-4 rounded-lg flex justify-between items-center shadow-sm">
-                            <div class="flex gap-3 items-center">
-                                <img src="${product.imageUrl || './assets/default_eye.png'}" class="w-12 h-12 rounded object-cover bg-gray-100">
-                                <div>
-                                    <div class="font-bold">${product.name}</div>
-                                    <div class="text-sm text-gray-500">RM${product.price}</div>
-                                </div>
-                            </div>
-                            <div class="space-x-2">
-                                <button class="editProductBtn text-blue-500 text-sm" data-id="${product.id}">编辑</button>
-                                <button class="deleteProductBtn text-red-500 text-sm" data-id="${product.id}">删除</button>
-                            </div>
-                        </div>
-                    `).join('')}
+                
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="p-4 text-gray-500">商品名称</th>
+                                <th class="p-4 text-gray-500">价格</th>
+                                <th class="p-4 text-gray-500 text-center">库存状态</th>
+                                <th class="p-4 text-gray-500 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${products.length === 0 ? `
+                                <tr><td colspan="4" class="p-8 text-center text-gray-400">暂无商品，请点击右上角添加</td></tr>
+                            ` : products.map(p => {
+                                // 库存状态逻辑
+                                const stock = parseInt(p.stock || 0);
+                                let stockBadge = '';
+                                if (stock === 0) stockBadge = `<span class="px-2 py-1 rounded bg-red-100 text-red-600 text-xs font-bold">🚫 缺货 (0)</span>`;
+                                else if (stock < 5) stockBadge = `<span class="px-2 py-1 rounded bg-yellow-100 text-yellow-700 text-xs font-bold">⚠️ 低库存 (${stock})</span>`;
+                                else stockBadge = `<span class="px-2 py-1 rounded bg-green-100 text-green-700 text-xs font-bold">✅ 充足 (${stock})</span>`;
+
+                                return `
+                                <tr class="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                                    <td class="p-4 font-bold text-gray-700 flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded bg-gray-200 overflow-hidden border flex-shrink-0">
+                                            <img src="${p.imageUrl || './assets/default_eye.png'}" class="w-full h-full object-cover">
+                                        </div>
+                                        ${p.name}
+                                    </td>
+                                    <td class="p-4 font-bold" style="color: ${config.primary_action_color};">RM${parseFloat(p.price).toFixed(2)}</td>
+                                    <td class="p-4 text-center">${stockBadge}</td>
+                                    <td class="p-4 text-right">
+                                        <button class="editProductBtn text-blue-500 font-bold border border-blue-200 px-3 py-1 rounded hover:bg-blue-50 transition-colors" data-id="${p.id}">
+                                            📝 补货
+                                        </button>
+                                        <button class="deleteProductBtn text-red-500 font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition-colors ml-2" data-id="${p.id}">
+                                            🗑️
+                                        </button>
+                                    </td>
+                                </tr>
+                            `}).join('')}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -1353,7 +1396,7 @@ function renderSettings(config) {
                 </h2>
                 
                 ${(() => {
-                    const currentVersion = 'v1.2.0';
+                    const currentVersion = 'v1.3.0';
                     // 检查是否已读
                     const lastSeen = localStorage.getItem('gembrow_last_seen_version');
                     const showBadge = lastSeen !== currentVersion;
@@ -1507,22 +1550,29 @@ function renderSettings(config) {
                         <input type="checkbox" id="showSSTOnReceipt" ${discountSettings.show_sst_on_receipt ? 'checked' : ''} class="w-5 h-5 accent-blue-600">
                     </div>
 
-                    <div class="mt-6 pt-6 border-t border-blue-200">
-                        <label class="block mb-2 text-sm font-bold text-gray-700">TNG / DuitNow 收款码</label>
-                        <div class="flex items-center gap-4">
-                            <div class="w-24 h-24 bg-white rounded-lg border-2 border-dashed border-blue-300 flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-colors overflow-hidden relative group"
-                                 onclick="document.getElementById('tngQrInput').click()">
-                                <img id="tngQrPreview" src="${discountSettings.tng_qr_url || ''}" class="w-full h-full object-contain" style="display: ${discountSettings.tng_qr_url ? 'block' : 'none'}">
-                                <span id="tngQrPlaceholder" class="text-2xl opacity-30" style="display: ${discountSettings.tng_qr_url ? 'none' : 'block'}">📷</span>
-                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 flex items-center justify-center transition-all">
-                                    <span class="text-[10px] text-white bg-black bg-opacity-50 px-2 py-1 rounded-full opacity-0 group-hover:opacity-100">更换</span>
-                                </div>
+                    <div class="mb-6">
+                        <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Touch 'n Go QR Code</label>
+                        <div class="relative group cursor-pointer w-48 h-48 mx-auto" onclick="document.getElementById('tngQrInput').click()">
+                            
+                            <img id="tngQrPreview" 
+                                 src="${discountSettings.tng_qr_url || ''}" 
+                                 class="w-full h-full object-cover rounded-xl border-2 border-dashed border-blue-300 shadow-sm ${discountSettings.tng_qr_url ? 'block' : 'hidden'}">
+                            
+                            <div id="tngQrPlaceholder" 
+                                 class="absolute inset-0 flex flex-col items-center justify-center bg-blue-50 rounded-xl border-2 border-dashed border-blue-300 ${discountSettings.tng_qr_url ? 'hidden' : 'flex'}">
+                                 <span class="text-4xl mb-2">📷</span>
+                                 <p class="text-xs text-blue-500 font-bold">点击上传二维码</p>
+                                 <p class="text-[10px] text-gray-400 mt-1">支持拖拽裁剪</p>
                             </div>
-                            <input type="file" id="tngQrInput" accept="image/*" style="display: none;">
+
+                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-xl flex items-center justify-center">
+                                <span class="text-white opacity-0 group-hover:opacity-100 font-bold text-sm bg-black/50 px-3 py-1 rounded-full">更换图片</span>
+                            </div>
+
                             <input type="hidden" id="tngQrUrl" value="${discountSettings.tng_qr_url || ''}">
+                            <input type="file" id="tngQrInput" accept="image/*" class="hidden">
                         </div>
-                   </div>
-                </div>
+                    </div>
 
                 <div class="mb-6 p-6 rounded-2xl bg-purple-50 border-2 border-purple-100 shadow-sm">
                     <h3 class="mb-4 font-bold text-lg text-purple-800 border-b border-purple-200 pb-2">⭐ 积分与会员等级</h3>
@@ -2247,11 +2297,17 @@ function attachEventListeners(config, services, bookings, posts) {
     document.getElementById('discountSettingsForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        // 获取提交按钮来显示“保存中...”
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerText;
+        submitBtn.innerText = "💾 保存中...";
+        
         try {
-            // 【关键】第一步：先保存管理员账号密码
+            // 1. 保存管理员账号
             const newAdminUser = document.getElementById('adminUsername').value.trim();
             const newAdminPass = document.getElementById('adminPassword').value.trim();
             
+            // ... (管理员账号保存逻辑保持不变) ...
             let rawData = JSON.parse(localStorage.getItem('gembrow_data') || '[]');
             rawData = rawData.filter(item => item.type !== 'owner_credentials');
             rawData.push({ 
@@ -2262,18 +2318,9 @@ function attachEventListeners(config, services, bookings, posts) {
                 createdAt: new Date().toISOString()
             });
             localStorage.setItem('gembrow_data', JSON.stringify(rawData));
-            
-            // 更新全局内存
             ownerCredentials = { username: newAdminUser, password: newAdminPass };
-            allData = allData.filter(item => item.type !== 'owner_credentials');
-            allData.push({
-                id: Date.now().toString(),
-                type: 'owner_credentials',
-                username: newAdminUser,
-                password: newAdminPass
-            });
 
-            // 【第二步】再保存普通设置 (包括 logo)
+            // 2. 保存普通设置
             const currentSettings = getDataByType('discount_settings')[0] || {};
             const newSettings = {
                 type: 'discount_settings',
@@ -2281,6 +2328,10 @@ function attachEventListeners(config, services, bookings, posts) {
                 ssm_number: document.getElementById('ssmNumber').value.trim(),
                 shop_address: document.getElementById('shopAddress').value.trim(),
                 wa_number: document.getElementById('waNumber').value,
+                
+                // 👇👇👇 关键：确保这行存在，才能保存 TNG 图片 👇👇👇
+                tng_qr_url: document.getElementById('tngQrUrl').value, 
+                
                 logo_login: document.getElementById('logoLoginUrl').value || '',
                 logo_header: document.getElementById('logoHeaderUrl').value || '',
                 map_link: document.getElementById('mapLink').value.trim(),
@@ -2293,7 +2344,6 @@ function attachEventListeners(config, services, bookings, posts) {
                 sst_rate: parseInt(document.getElementById('sstRate').value) || 6,
                 sst_id: document.getElementById('sstID').value.trim(),
                 show_sst_on_receipt: document.getElementById('showSSTOnReceipt').checked,
-                tng_qr_url: document.getElementById('tngQrUrl').value,
                 bronze_points: parseInt(document.getElementById('bronzePoints').value) || 0,
                 bronze_discount: parseInt(document.getElementById('bronzeDiscount').value) || 0,
                 silver_points: parseInt(document.getElementById('silverPoints').value) || 100,
@@ -2311,14 +2361,16 @@ function attachEventListeners(config, services, bookings, posts) {
                 await createRecord(newSettings);
             }
 
-            // 【第三步】提示成功并刷新
             showToast('✅ 设置已保存！');
-            allData = loadDb(); // 确保内存中有最新数据
+            allData = loadDb();
             renderApp();
-            initGlobalWidgets(); // 重新生成全局小工具
+            if (typeof initGlobalWidgets === 'function') initGlobalWidgets();
+            
         } catch (error) {
             showToast('❌ 保存失败：' + error.message);
-            console.error('保存设置错误：', error);
+            console.error(error);
+        } finally {
+            submitBtn.innerText = originalText;
         }
     });
 
@@ -3658,216 +3710,254 @@ initApp();
 
 // ==================== 商品管理功能 ====================
 
+// ==========================================
+// 👇 V1.2.X 优化：添加商品 (含库存输入)
+// ==========================================
 function showProductModal(config) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    
+    // 默认图
+    const placeholder = 'https://via.placeholder.com/150?text=Upload+Image';
+
     modal.innerHTML = `
-        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
-            <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                上架新商品
-            </h3>
-            
-            <form id="productForm">
-                <div class="mb-4">
-                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品名称</label>
-                    <input type="text" id="productName" required
-                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                </div>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border-4" style="border-color: ${config.primary_action_color};">
+            <div class="p-6">
+                <h3 class="text-xl font-bold mb-6 text-center">✨ 上架新商品</h3>
                 
-                <div class="mb-4">
-                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">价格 (RM)</label>
-                    <input type="number" id="productPrice" required min="0" step="0.01"
-                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                <div class="mb-6 flex justify-center">
+                    <div class="relative group cursor-pointer w-32 h-32" id="prodImgContainer">
+                        <img id="newProdPreview" src="${placeholder}" class="w-full h-full object-cover rounded-xl border-2 border-dashed border-gray-300">
+                        <div class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all rounded-xl">
+                            <span class="text-white opacity-0 group-hover:opacity-100 font-bold text-sm">点击上传</span>
+                        </div>
+                        <input type="file" id="newProdFile" accept="image/*" class="hidden">
+                        <input type="hidden" id="newProdImgBase64" value="">
+                    </div>
                 </div>
 
-                <div class="mb-4">
-                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品图片</label>
-                    <input type="file" id="prodFileInput" accept="image/*" style="display: none;">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">商品名称</label>
+                        <input type="text" id="newProdName" class="w-full px-4 py-2 rounded-lg border focus:border-pink-500" placeholder="例如: 修复面膜">
+                    </div>
                     
-                    <div id="prodDropZone" style="border: 2px dashed ${config.primary_action_color}; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: ${config.primary_action_color}11;">
-                        <p id="prodUploadText" style="color: ${config.text_color}; opacity: 0.7; pointer-events: none;">
-                            🛍️ 点击上传商品图<br><span style="font-size: 12px;">(支持拖拽或粘贴链接)</span>
-                        </p>
-                        <img id="prodImagePreview" src="" style="max-height: 150px; display: none; margin: 0 auto; border-radius: 8px;">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">价格 (RM)</label>
+                            <input type="number" id="newProdPrice" step="0.01" class="w-full px-4 py-2 rounded-lg border focus:border-pink-500" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">初始库存</label>
+                            <input type="number" id="newProdStock" value="10" min="0" class="w-full px-4 py-2 rounded-lg border bg-blue-50 focus:border-blue-500 font-bold text-blue-700">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <label class="block text-xs font-bold text-gray-500 mb-1">商品描述</label>
+                        <textarea id="newProdDesc" rows="2" class="w-full px-4 py-2 rounded-lg border focus:border-pink-500"></textarea>
                     </div>
 
-                    <input type="text" id="productImage" placeholder="图片链接..." 
-                        class="w-full px-4 py-2 mt-2 rounded-lg border-2 text-sm" style="font-family: Lato, sans-serif; border-color: ${config.text_color}33; color: ${config.text_color};">
+                    <div class="flex gap-3 mt-6">
+                        <button id="cancelAddProd" class="flex-1 py-3 rounded-xl font-bold text-gray-500 border border-gray-200">取消</button>
+                        <button id="confirmAddProd" class="flex-1 py-3 rounded-xl font-bold text-white shadow-md" style="background: ${config.primary_action_color};">确认上架</button>
+                    </div>
                 </div>
-                
-                <div class="mb-6">
-                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品描述</label>
-                    <textarea id="productDescription" required rows="3"
-                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;"></textarea>
-                </div>
-                
-                <div class="flex gap-3">
-                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
-                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">上架商品</button>
-                    <button type="button" id="cancelProductBtn" class="flex-1 py-3 rounded-lg"
-                        style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">取消</button>
-                </div>
-            </form>
+            </div>
         </div>
     `;
-    
     document.body.appendChild(modal);
-    
-    // 图片逻辑复用
-    const dropZone = document.getElementById('prodDropZone');
-    const fileInput = document.getElementById('prodFileInput');
-    const imageInput = document.getElementById('productImage');
-    const preview = document.getElementById('prodImagePreview');
-    const text = document.getElementById('prodUploadText');
 
-    const updatePreview = (src) => {
-        if (src) { preview.src = src; preview.style.display = 'block'; text.style.display = 'none'; }
-        else { preview.style.display = 'none'; text.style.display = 'block'; }
-    };
-    imageInput.addEventListener('input', () => updatePreview(imageInput.value));
-    dropZone.addEventListener('click', () => fileInput.click());
+    // 图片上传 (支持裁剪)
+    const fileInput = document.getElementById('newProdFile');
+    const imageInput = document.getElementById('newProdImgBase64');
+    const imagePreview = document.getElementById('newProdPreview');
+
+    document.getElementById('prodImgContainer').addEventListener('click', () => fileInput.click());
+    
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
+            // 商品图保持方形 (false)
             openCropperModal(file, (base64) => {
                 imageInput.value = base64;
-                updatePreview(base64);
-            });
+                imagePreview.src = base64;
+            }, false);
         }
     });
 
-    document.getElementById('productForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const success = await createRecord({
+    // 保存逻辑
+    document.getElementById('confirmAddProd').addEventListener('click', async () => {
+        const name = document.getElementById('newProdName').value;
+        const price = parseFloat(document.getElementById('newProdPrice').value);
+        const stock = parseInt(document.getElementById('newProdStock').value) || 0; // 获取库存
+        const desc = document.getElementById('newProdDesc').value;
+        const img = document.getElementById('newProdImgBase64').value;
+
+        if (!name || isNaN(price)) return showToast('请填写完整信息');
+
+        await createRecord({
             type: 'product',
-            name: document.getElementById('productName').value,
-            price: parseFloat(document.getElementById('productPrice').value),
-            description: document.getElementById('productDescription').value,
-            imageUrl: imageInput.value
+            name,
+            price,
+            stock, // 保存库存
+            description: desc,
+            imageUrl: img,
+            createdAt: new Date().toISOString()
         });
-        if (success) modal.remove();
+
+        showToast('✅ 商品上架成功');
+        modal.remove();
+        renderApp();
     });
-    
-    document.getElementById('cancelProductBtn').addEventListener('click', () => modal.remove());
+
+    document.getElementById('cancelAddProd').addEventListener('click', () => modal.remove());
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
+// ==========================================
+// 👇 V1.2.X 优化：编辑商品 (支持改库存/补货)
+// ==========================================
 function showEditProductModal(config, product) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    
     modal.innerHTML = `
-        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
-            <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                编辑商品: ${product.name}
-            </h3>
-            
-            <form id="editProductForm">
-                <div class="mb-4">
-                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品名称</label>
-                    <input type="text" id="editProductName" required value="${product.name}"
-                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                </div>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border-4" style="border-color: ${config.primary_action_color};">
+            <div class="p-6">
+                <h3 class="text-xl font-bold mb-6 text-center">📝 编辑 / 补货</h3>
                 
-                <div class="mb-4">
-                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">价格 (RM)</label>
-                    <input type="number" id="editProductPrice" required min="0" step="0.01" value="${product.price}"
-                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
+                <div class="mb-6 flex justify-center">
+                    <div class="relative group cursor-pointer w-32 h-32" id="editProdImgContainer">
+                        <img id="editProdPreview" src="${product.imageUrl || 'https://via.placeholder.com/150'}" class="w-full h-full object-cover rounded-xl border border-gray-200">
+                        <div class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all rounded-xl">
+                            <span class="text-white opacity-0 group-hover:opacity-100 font-bold text-sm">更换图片</span>
+                        </div>
+                        <input type="file" id="editProdFile" accept="image/*" class="hidden">
+                        <input type="hidden" id="editProdImgBase64" value="${product.imageUrl || ''}">
+                    </div>
                 </div>
 
-                <div class="mb-4">
-                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品图片</label>
-                    <input type="file" id="editProdFileInput" accept="image/*" style="display: none;">
-                    <div id="editProdDropZone" style="border: 2px dashed ${config.primary_action_color}; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: ${config.primary_action_color}11;">
-                        <img id="editProdImagePreview" src="${product.imageUrl || ''}" style="max-height: 150px; margin: 0 auto; border-radius: 8px; display: ${product.imageUrl ? 'block' : 'none'};">
-                        <p id="editProdUploadText" style="color: ${config.text_color}; opacity: 0.7; pointer-events: none; display: ${product.imageUrl ? 'none' : 'block'};">
-                            📸 点击修改图片
-                        </p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">商品名称</label>
+                        <input type="text" id="editProdName" value="${product.name}" class="w-full px-4 py-2 rounded-lg border focus:border-pink-500">
                     </div>
-                    <input type="text" id="editProductImage" value="${product.imageUrl || ''}"
-                        class="w-full px-4 py-2 mt-2 rounded-lg border-2 text-sm" style="font-family: Lato, sans-serif; border-color: ${config.text_color}33; color: ${config.text_color};">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">价格 (RM)</label>
+                            <input type="number" id="editProdPrice" value="${product.price}" step="0.01" class="w-full px-4 py-2 rounded-lg border focus:border-pink-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">当前库存 (可以直接改)</label>
+                            <input type="number" id="editProdStock" value="${product.stock || 0}" min="0" 
+                                class="w-full px-4 py-2 rounded-lg border-2 border-blue-200 bg-blue-50 focus:border-blue-500 font-bold text-blue-700">
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 mt-6">
+                        <button id="cancelEditProd" class="flex-1 py-3 rounded-xl font-bold text-gray-500 border border-gray-200">取消</button>
+                        <button id="confirmEditProd" class="flex-1 py-3 rounded-xl font-bold text-white shadow-md" style="background: ${config.primary_action_color};">保存修改</button>
+                    </div>
                 </div>
-                
-                <div class="mb-6">
-                    <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">商品描述</label>
-                    <textarea id="editProductDescription" required rows="3"
-                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">${product.description}</textarea>
-                </div>
-                
-                <div class="flex gap-3">
-                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
-                        style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">保存更改</button>
-                    <button type="button" id="cancelEditProductBtn" class="flex-1 py-3 rounded-lg"
-                        style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">取消</button>
-                </div>
-            </form>
+            </div>
         </div>
     `;
-    
     document.body.appendChild(modal);
-    
-    const dropZone = document.getElementById('editProdDropZone');
-    const fileInput = document.getElementById('editProdFileInput');
-    const imageInput = document.getElementById('editProductImage');
-    const preview = document.getElementById('editProdImagePreview');
-    const text = document.getElementById('editProdUploadText');
 
-    const updatePreview = (src) => {
-        if (src) { preview.src = src; preview.style.display = 'block'; text.style.display = 'none'; }
-        else { preview.style.display = 'none'; text.style.display = 'block'; }
-    };
-    imageInput.addEventListener('input', () => updatePreview(imageInput.value));
-    dropZone.addEventListener('click', () => fileInput.click());
+    // 图片上传
+    const fileInput = document.getElementById('editProdFile');
+    const imageInput = document.getElementById('editProdImgBase64');
+    const imagePreview = document.getElementById('editProdPreview');
+
+    document.getElementById('editProdImgContainer').addEventListener('click', () => fileInput.click());
+    
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
             openCropperModal(file, (base64) => {
                 imageInput.value = base64;
-                updatePreview(base64);
-            });
+                imagePreview.src = base64;
+            }, false);
         }
     });
 
-    document.getElementById('editProductForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
+    // 保存逻辑
+    document.getElementById('confirmEditProd').addEventListener('click', async () => {
+        const name = document.getElementById('editProdName').value;
+        const price = parseFloat(document.getElementById('editProdPrice').value);
+        const stock = parseInt(document.getElementById('editProdStock').value) || 0; // 获取新库存
+        const img = document.getElementById('editProdImgBase64').value;
+
+        if (!name || isNaN(price)) return showToast('请填写完整信息');
+
         await updateRecord(product, {
-            name: document.getElementById('editProductName').value,
-            price: parseFloat(document.getElementById('editProductPrice').value),
-            description: document.getElementById('editProductDescription').value,
-            imageUrl: imageInput.value
+            name,
+            price,
+            stock, // 更新库存
+            imageUrl: img
         });
+
+        showToast('✅ 商品资料已更新');
         modal.remove();
+        renderApp();
     });
-    
-    document.getElementById('cancelEditProductBtn').addEventListener('click', () => modal.remove());
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    document.getElementById('cancelEditProd').addEventListener('click', () => modal.remove());
 }
 
 // ==================== 购物车逻辑 ====================
 
-// 1. 添加商品到购物车
-function addToCart(productId) {
+// ==========================================
+// 👇 V1.2.X 核心：顾客加购 (同步到数据库)
+// ==========================================
+async function addToCart(productId) {
+    if (!loggedInCustomerName) {
+        showToast('请先登录后再加入购物车');
+        return;
+    }
+
     const products = getDataByType('product');
     const product = products.find(p => p.id === productId);
-    
     if (!product) return;
+
+    // 1. 获取当前顾客的最新数据
+    const customers = getDataByType('customer_account');
+    const me = customers.find(c => c.username === loggedInCustomerName);
     
-    // 检查购物车里是不是已经有这个东西了
-    const existingItem = cart.find(item => item.id === productId);
-    
+    if (!me) return;
+
+    // 2. 获取他现有的购物车 (如果没有就初始化为空)
+    let myCart = me.cart || [];
+
+    // 3. 检查是否已存在
+    const existingItem = myCart.find(item => item.id === productId);
     if (existingItem) {
-        existingItem.quantity += 1; // 有就加数量
+        existingItem.quantity += 1;
     } else {
-        cart.push({
-            ...product,
-            quantity: 1
-        }); // 没有就新加
+        myCart.push({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            quantity: 1,
+            type: 'product' // 标记类型
+        });
     }
+
+    // 4. 🔥 关键：保存回数据库！这样老板那边才能看到
+    await updateRecord(me, { cart: myCart });
     
     showToast(`🛒 已加入: ${product.name}`);
-    renderApp(); // 刷新页面更新小红点
+    
+    // 更新全局变量 cart (用于UI显示小红点)
+    cart = myCart; 
+    renderApp(); 
 }
 
-// 2. 显示购物车详情弹窗
+// ==========================================
+// 👇 V1.2.X 修复：购物车 (下单后清空数据库)
+// ==========================================
 function showCartModal(config) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
@@ -3913,7 +4003,7 @@ function showCartModal(config) {
                 
                 <button id="checkoutBtn" class="w-full btn-primary py-3 rounded-lg font-bold shadow-md"
                     style="background: ${config.secondary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                    提交订单 (WhatsApp)
+                    提交订单
                 </button>
             `}
         </div>
@@ -3924,39 +4014,51 @@ function showCartModal(config) {
     // 绑定事件
     document.getElementById('closeCartBtn').addEventListener('click', () => modal.remove());
     
-    // 删除单个商品
+    // 删除商品
     document.querySelectorAll('.removeFromCartBtn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             const index = parseInt(e.target.dataset.index);
-            cart.splice(index, 1); // 移除该项
-            modal.remove(); // 关闭旧弹窗
-            showCartModal(config); // 重新打开刷新
-            renderApp(); // 刷新主页更新小红点
+            cart.splice(index, 1);
+            
+            // 同步更新数据库
+            const customers = getDataByType('customer_account');
+            const me = customers.find(c => c.username === loggedInCustomerName);
+            if (me) await updateRecord(me, { cart: cart });
+
+            modal.remove();
+            showCartModal(config);
+            renderApp();
         });
     });
     
-    // 结算按钮 (目前先做一个简单的模拟结算)
+    // 结算按钮 (下单)
     document.getElementById('checkoutBtn')?.addEventListener('click', async () => {
         if (!loggedInCustomerName) {
             showToast('请先登录后再提交订单');
             return;
         }
         
-        // 创建订单记录
-        const success = await createRecord({
-            type: 'order', // 新的数据类型：订单
+        // 创建订单
+        await createRecord({
+            type: 'order',
             customerName: loggedInCustomerName,
             items: cart,
             totalAmount: total,
-            status: 'pending'
+            status: 'pending',
+            createdAt: new Date().toISOString()
         });
         
-        if (success) {
-            showToast('🎉 订单已提交！我们要联系您安排发货。');
-            cart = []; // 清空购物车
-            modal.remove();
-            renderApp();
+        // 🔥 关键修复：清空数据库里的购物车
+        const customers = getDataByType('customer_account');
+        const me = customers.find(c => c.username === loggedInCustomerName);
+        if (me) {
+            await updateRecord(me, { cart: [] });
         }
+        
+        showToast('🎉 订单已提交！等待店家确认。');
+        cart = []; // 清空本地
+        modal.remove();
+        renderApp();
     });
 
     modal.addEventListener('click', (e) => {
@@ -4393,230 +4495,334 @@ function showBlockTimeModal(config) {
 }
 
 // ==========================================
-// 👇 新增：傻瓜收银台 (含 SST 计算)
+// 👇 V1.2.X 核心：智能收银台 (全渠道同步版)
 // ==========================================
-function showCashierModal(config, booking = null) {
-    const settings = getDiscountSettings();
-    const hasSST = settings.enable_sst;
-    const sstRate = parseFloat(settings.sst_rate || 6);
-    
-    let items = [];
-    if (booking) {
-        items.push({ name: booking.serviceName, price: booking.totalAmount, type: 'service' });
-    }
-
+function showCashierModal(config, booking) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     
-    const renderContent = () => {
-        const total = items.reduce((sum, item) => sum + item.price, 0);
-        const sstAmount = hasSST ? (total - (total / (1 + (sstRate / 100)))) : 0;
-        const subTotal = total - sstAmount;
+    const allProducts = getDataByType('product') || [];
+    const allServices = getDataByType('service') || [];
+    const customers = getDataByType('customer_account') || [];
+    const allOrders = getDataByType('order') || []; // 👈 获取所有订单
 
-        return `
-            <div style="background: white; padding: 0; border-radius: 16px; max-width: 450px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
-                <div class="p-5 text-white text-center relative" style="background: ${config.primary_action_color};">
-                    <h3 class="text-xl font-bold">💰 收银台</h3>
-                    <p class="text-xs opacity-80 mt-1">${new Date().toLocaleString()}</p>
-                    <button id="closeCashierBtn" class="absolute top-4 right-4 text-white opacity-70 hover:opacity-100">✕</button>
-                </div>
+    // 1. 查找服务价格
+    let initialServicePrice = 0;
+    const matchedService = allServices.find(s => s.name === booking.serviceName);
+    if (matchedService) initialServicePrice = parseFloat(matchedService.price);
 
-                <div class="p-5 flex-1 overflow-y-auto bg-gray-50">
-                    <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
-                        ${items.map((item, index) => `
-                            <div class="flex justify-between items-center mb-2 text-sm">
-                                <div><span class="font-bold text-gray-800">${item.name}</span></div>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold">RM ${item.price.toFixed(2)}</span>
-                                    ${item.type !== 'service' ? `<button onclick="window.removeItem(${index})" class="text-red-400 text-xs">✕</button>` : ''}
-                                </div>
+    let cartItems = [
+        { type: 'service', id: booking.serviceId || 'srv_booking', name: booking.serviceName, price: initialServicePrice, quantity: 1 }
+    ];
+
+    // 用于记录哪些 Pending 订单被合并了，结账后要更新它们的状态
+    let mergedOrderIds = [];
+
+    // 2. 🔥 同步逻辑 A：检查“购物车” (未提交的)
+    const currentCustomer = customers.find(c => c.username === booking.customerName);
+    if (currentCustomer && currentCustomer.cart && currentCustomer.cart.length > 0) {
+        currentCustomer.cart.forEach(cartItem => {
+            cartItems.push({
+                type: 'product',
+                id: cartItem.id,
+                name: cartItem.name,
+                price: parseFloat(cartItem.price),
+                quantity: cartItem.quantity,
+                fromSource: 'cart' // 标记来源
+            });
+        });
+        showToast(`🛒 已同步购物车内的商品`);
+    }
+
+    // 3. 🔥 同步逻辑 B：检查“待处理订单” (已提交但未付/未发的)
+    // 只有当订单状态是 'pending' 且属于当前客户时，才合并进来
+    const pendingOrders = allOrders.filter(o => o.customerName === booking.customerName && o.status === 'pending');
+    if (pendingOrders.length > 0) {
+        pendingOrders.forEach(order => {
+            mergedOrderIds.push(order.id); // 记下来，等下收钱了要标记为完成
+            order.items.forEach(item => {
+                cartItems.push({
+                    type: 'product',
+                    id: item.id,
+                    name: item.name,
+                    price: parseFloat(item.price),
+                    quantity: item.quantity,
+                    fromSource: 'order' // 标记来源
+                });
+            });
+        });
+        showToast(`📑 已合并 ${pendingOrders.length} 张待处理订单`);
+    }
+
+    const renderCart = () => {
+        const listEl = document.getElementById('posCartList');
+        const totalEl = document.getElementById('posTotalAmount');
+        const adjustment = parseFloat(document.getElementById('posAdjustment')?.value || 0);
+        
+        if (!listEl || !totalEl) return;
+
+        let subtotal = 0;
+        
+        listEl.innerHTML = cartItems.map((item, index) => {
+            const itemTotal = item.price * item.quantity;
+            subtotal += itemTotal;
+            
+            // 显示不同的来源标签
+            let sourceBadge = '';
+            if (item.fromSource === 'cart') sourceBadge = `<span class="text-[10px] bg-blue-100 text-blue-600 px-1 rounded ml-2">🛒 购物车</span>`;
+            else if (item.fromSource === 'order') sourceBadge = `<span class="text-[10px] bg-purple-100 text-purple-600 px-1 rounded ml-2">📑 订单</span>`;
+
+            return `
+                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2 animate-fade-in-up">
+                    <div class="flex-1">
+                        <div class="font-bold text-gray-700 text-sm flex items-center flex-wrap">
+                            ${item.type === 'service' ? '💆‍♀️' : '🛍️'} ${item.name} ${sourceBadge}
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1">单价: RM${item.price.toFixed(2)}</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        ${item.type === 'product' ? `
+                            <div class="flex items-center bg-white border rounded-lg h-8">
+                                <button onclick="window.updatePosQty(${index}, -1)" class="px-2 text-gray-500 hover:text-red-500 font-bold">-</button>
+                                <span class="px-2 text-sm font-bold w-8 text-center">${item.quantity}</span>
+                                <button onclick="window.updatePosQty(${index}, 1)" class="px-2 text-gray-500 hover:text-green-500 font-bold">+</button>
                             </div>
-                        `).join('')}
+                        ` : `<span class="text-sm font-bold text-gray-500">x1</span>`}
                         
-                        <div class="mt-4 pt-3 border-t border-dashed flex gap-2">
-                            <input type="text" id="extraName" placeholder="加购商品..." class="flex-1 px-2 py-1 text-sm border rounded">
-                            <input type="number" id="extraPrice" placeholder="RM" class="w-20 px-2 py-1 text-sm border rounded">
-                            <button id="addExtraBtn" class="bg-green-500 text-white px-3 py-1 rounded text-sm font-bold">+</button>
-                        </div>
-                    </div>
-
-                    <div class="space-y-2 text-sm px-2">
-                        ${hasSST && settings.show_sst_on_receipt ? `
-                            <div class="flex justify-between text-gray-500"><span>税前 (Subtotal)</span><span>RM ${subTotal.toFixed(2)}</span></div>
-                            <div class="flex justify-between text-blue-600"><span>SST (${sstRate}%)</span><span>RM ${sstAmount.toFixed(2)}</span></div>
-                        ` : ''}
-                        <div class="flex justify-between items-center text-xl font-bold text-gray-800 border-t border-gray-300 pt-3 mt-2">
-                            <span>Total</span><span style="color: ${config.primary_action_color};">RM ${total.toFixed(2)}</span>
-                        </div>
+                        <span class="font-bold text-gray-700 w-20 text-right">RM${itemTotal.toFixed(2)}</span>
+                        ${item.type !== 'service' ? `<button onclick="window.removePosItem(${index})" class="text-gray-400 hover:text-red-500 px-1">✕</button>` : '<span class="w-4"></span>'} 
                     </div>
                 </div>
+            `;
+        }).join('');
 
-                <div class="p-5 border-t bg-white">
-                    <div class="grid grid-cols-3 gap-2 mb-4">
-                        <div class="relative">
-                            <button class="pay-btn w-full py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="TNG">TNG</button>
-                            ${settings.tng_qr_url ? `<div id="showQrBtn" class="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full text-white flex items-center justify-center text-xs cursor-pointer shadow-md" title="显示二维码">📱</div>` : ''}
+        const finalTotal = subtotal + adjustment;
+        totalEl.innerText = `RM${finalTotal.toFixed(2)}`;
+        
+        const btn = document.getElementById('confirmPaymentBtn');
+        btn.dataset.total = finalTotal;
+        if (btn.dataset.method) btn.innerText = `确认收款 RM${finalTotal.toFixed(2)}`;
+    };
+
+    // 全局助手函数
+    window.removePosItem = (index) => { cartItems.splice(index, 1); renderCart(); };
+    window.updatePosQty = (index, change) => {
+        const item = cartItems[index];
+        if (!item) return;
+        const newQty = item.quantity + change;
+        if (newQty < 1) return; 
+        
+        // 实时库存检查
+        const productData = allProducts.find(p => p.id === item.id);
+        const maxStock = productData ? parseInt(productData.stock || 9999) : 9999;
+        if (newQty > maxStock) return showToast(`库存不足！当前仅剩 ${maxStock}`);
+
+        item.quantity = newQty;
+        renderCart();
+    };
+
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row h-[85vh]">
+            <div class="w-full md:w-5/12 bg-gray-50 p-6 flex flex-col border-r border-gray-200 overflow-y-auto">
+                <div class="mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-1">💰 收银台</h3>
+                    <p class="text-sm text-gray-500">单号: <span class="font-mono font-bold">${booking.receiptNumber || '结算时生成'}</span></p>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-6">
+                    <h4 class="font-bold text-gray-700 mb-4 text-sm flex items-center gap-2">🛍️ 添加商品</h4>
+                    <div class="space-y-4">
+                        <select id="productSelect" class="w-full px-4 py-3 rounded-lg border bg-gray-50 text-sm font-bold focus:outline-none focus:border-pink-500">
+                            <option value="">👇 点击选择商品...</option>
+                            ${allProducts.map(p => `<option value="${p.id}" data-price="${p.price}" data-name="${p.name}" data-stock="${p.stock}">${p.name} (RM${p.price}) - 库存: ${p.stock !== undefined ? p.stock : '未设置'}</option>`).join('')}
+                        </select>
+                        <div class="flex items-center gap-3">
+                            <button type="button" onclick="document.getElementById('productQty').stepDown()" class="w-10 h-10 rounded-lg bg-gray-200 hover:bg-gray-300 font-bold text-lg">-</button>
+                            <input type="number" id="productQty" value="1" min="1" class="flex-1 h-10 text-center border-2 rounded-lg font-bold" readonly>
+                            <button type="button" onclick="document.getElementById('productQty').stepUp()" class="w-10 h-10 rounded-lg bg-gray-200 hover:bg-gray-300 font-bold text-lg">+</button>
                         </div>
-                        <button class="pay-btn py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="DuitNow">DuitNow</button>
-                        <button class="pay-btn py-2 rounded border-2 border-gray-100 hover:border-pink-500 font-bold text-sm text-gray-600 focus:bg-pink-50 focus:border-pink-500 focus:text-pink-600" data-method="Cash">Cash</button>
+                        <button id="addPosItemBtn" class="w-full py-3 bg-gray-800 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-black transition-all transform active:scale-95">+ 加入清单</button>
                     </div>
-                    
-                    <div class="flex gap-2">
-                        <button id="printBtn" class="flex-1 py-3 rounded-xl font-bold border-2 text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1">
-                            🖨️ 打印
-                        </button>
-                        <button id="confirmPayBtn" class="flex-[2] py-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2" 
-                            style="background: ${config.primary_action_color}; opacity: 0.5; cursor: not-allowed;" disabled>
-                            <span>✅ 确认 & 发 WhatsApp</span>
-                        </button>
-                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-pink-100 mt-auto">
+                    <h4 class="font-bold text-pink-600 mb-3 text-sm">⚖️ 补差价 / 折扣</h4>
+                    <div class="flex gap-2 items-center"><span class="text-gray-400 font-bold">RM</span><input type="number" id="posAdjustment" value="0" step="1" class="flex-1 px-3 py-2 rounded-lg border border-pink-200 text-pink-600 font-bold text-lg focus:outline-none"></div>
+                    <p class="text-[10px] text-gray-400 mt-2">提示: 输入负数 (例如 -10) 代表折扣</p>
                 </div>
             </div>
-        `;
-    };
+            <div class="w-full md:w-7/12 bg-white p-6 flex flex-col h-full relative">
+                <button id="closePosBtn" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
+                <div class="mb-4"><h4 class="font-bold text-gray-800 text-lg">当前客户</h4><p class="text-gray-500">${booking.customerName} <span class="text-xs bg-gray-100 px-2 py-0.5 rounded-full ml-2">${booking.customerPhone}</span></p></div>
+                <div class="flex-1 overflow-y-auto mb-4 pr-2 custom-scrollbar bg-gray-50 rounded-xl p-4 border border-dashed border-gray-300"><div id="posCartList" class="space-y-2"></div></div>
+                <div class="border-t pt-4">
+                    <div class="flex justify-between items-end mb-6"><div><p class="text-xs text-gray-400 font-bold uppercase tracking-wider">Total Amount</p><p class="text-sm text-gray-500">应收总额</p></div><span id="posTotalAmount" class="text-4xl font-bold" style="color: ${config.primary_action_color};">RM0.00</span></div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <button class="payMethodBtn flex items-center justify-center gap-2 py-4 border-2 rounded-xl font-bold text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-all group" data-method="TNG"><span class="grayscale group-hover:grayscale-0 text-xl transition-all">🔵</span> TNG</button>
+                        <button class="payMethodBtn flex items-center justify-center gap-2 py-4 border-2 rounded-xl font-bold text-gray-400 hover:border-green-500 hover:text-green-500 transition-all group" data-method="Cash"><span class="grayscale group-hover:grayscale-0 text-xl transition-all">💵</span> Cash</button>
+                    </div>
+                    <button id="confirmPaymentBtn" disabled class="w-full py-4 rounded-xl text-white font-bold text-lg shadow-xl opacity-40 cursor-not-allowed transition-all" style="background: ${config.primary_action_color};">请选择支付方式</button>
+                </div>
+            </div>
+        </div>
+    `;
 
-    modal.innerHTML = renderContent();
     document.body.appendChild(modal);
+    renderCart();
+
+    const closeModal = () => { modal.remove(); delete window.removePosItem; delete window.updatePosQty; };
+    document.getElementById('closePosBtn').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    document.getElementById('addPosItemBtn').addEventListener('click', () => {
+        const select = document.getElementById('productSelect');
+        const qtyInput = document.getElementById('productQty');
+        const option = select.options[select.selectedIndex];
+        if (!option.value) return showToast('请先选择一个商品！');
+        
+        let stock = option.dataset.stock;
+        stock = (stock === "undefined" || stock === "") ? 9999 : parseInt(stock);
+        const qty = parseInt(qtyInput.value);
+        const price = parseFloat(option.dataset.price);
+        const name = option.dataset.name || option.text.split('(')[0].trim();
+
+        if (qty > stock) return showToast(`⚠️ 库存不足！当前仅剩 ${stock} 件`);
+
+        const existing = cartItems.find(i => i.id === option.value && i.type === 'product');
+        if (existing) {
+            if (existing.quantity + qty > stock) return showToast('加购数量超过总库存！');
+            existing.quantity += qty;
+        } else {
+            cartItems.push({ type: 'product', id: option.value, name, price, quantity: qty });
+        }
+        renderCart();
+        select.value = ""; qtyInput.value = 1; showToast('✅ 已添加到清单');
+    });
+
+    document.getElementById('posAdjustment').addEventListener('input', renderCart);
 
     let selectedMethod = '';
+    const confirmBtn = document.getElementById('confirmPaymentBtn');
+    
+    document.querySelectorAll('.payMethodBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // 1. 样式重置
+            document.querySelectorAll('.payMethodBtn').forEach(b => {
+                b.classList.remove('border-blue-500', 'text-blue-500', 'bg-blue-50', 'border-green-500', 'text-green-500', 'bg-green-50');
+                b.classList.add('text-gray-400', 'border-gray-200');
+            });
+            
+            const method = btn.dataset.method;
+            selectedMethod = method;
+            
+            // 2. 激活样式
+            btn.classList.remove('text-gray-400', 'border-gray-200');
+            if (method === 'TNG') {
+                btn.classList.add('border-blue-500', 'text-blue-500', 'bg-blue-50');
+                
+                // 👇👇👇 新增：点击 TNG 时自动弹出二维码 👇👇👇
+                const settings = getDataByType('discount_settings')[0] || {};
+                const qrUrl = settings.tng_qr_url || config.tng_qr_url; // 双重保险
+                
+                if (qrUrl) {
+                    showQrPopup(qrUrl);
+                } else {
+                    showToast('⚠️ 未设置收款二维码，请去系统设置上传');
+                }
+                // 👆👆👆 新增结束 👆👆👆
+                
+            } else {
+                btn.classList.add('border-green-500', 'text-green-500', 'bg-green-50');
+            }
 
-    const refresh = () => { modal.innerHTML = renderContent(); bindEvents(); };
-    window.removeItem = (index) => { items.splice(index, 1); refresh(); };
+            // 3. 激活确认按钮
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = '1';
+            confirmBtn.style.cursor = 'pointer';
+            confirmBtn.dataset.method = method;
+            renderCart(); // 刷新按钮文字
+        });
+    });
 
-    // 🖨️ 打印收据功能 (纯净版 HTML)
-    const printReceipt = () => {
-        const total = items.reduce((sum, i) => sum + i.price, 0);
-        const sstAmount = hasSST ? (total - (total / (1 + (sstRate / 100)))) : 0;
-        const subTotal = total - sstAmount;
+    // 🔥 确认收款 (含强库存检查 + 完结旧订单)
+    confirmBtn.addEventListener('click', async () => {
+        if (!selectedMethod) return;
+        confirmBtn.innerText = "⏳ 检查库存...";
+        confirmBtn.disabled = true;
 
-        // 打开新窗口打印
-        const printWindow = window.open('', '_blank', 'width=400,height=600');
-        printWindow.document.write(`
-            <html>
-            <head>
-                <title>Receipt - ${settings.shop_name || 'Gem Brow'}</title>
-                <style>
-                    body { font-family: 'Courier New', monospace; padding: 20px; font-size: 12px; }
-                    .header { text-align: center; margin-bottom: 20px; }
-                    .shop-name { font-size: 16px; font-weight: bold; }
-                    .divider { border-top: 1px dashed #000; margin: 10px 0; }
-                    .item { display: flex; justify-content: space-between; margin-bottom: 5px; }
-                    .total { font-size: 14px; font-weight: bold; margin-top: 10px; text-align: right; }
-                    .footer { text-align: center; margin-top: 20px; font-size: 10px; }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div class="shop-name">${settings.shop_name || 'Gem Brow Beauty'}</div>
-                    <div>${settings.shop_address || ''}</div>
-                    <div>${settings.wa_number || ''}</div>
-                    <div class="divider"></div>
-                    <div>Date: ${new Date().toLocaleString()}</div>
-                    <div>ID: #${Date.now().toString().slice(-6)}</div>
-                </div>
-                <div class="content">
-                    ${items.map(i => `<div class="item"><span>${i.name}</span><span>RM ${i.price.toFixed(2)}</span></div>`).join('')}
-                    
-                    <div class="divider"></div>
-                    ${hasSST && settings.show_sst_on_receipt ? `
-                        <div class="item"><span>Subtotal</span><span>RM ${subTotal.toFixed(2)}</span></div>
-                        <div class="item"><span>SST (${sstRate}%)</span><span>RM ${sstAmount.toFixed(2)}</span></div>
-                        ${settings.sst_id ? `<div style="font-size:10px;">SST ID: ${settings.sst_id}</div>` : ''}
-                    ` : ''}
-                    <div class="total">TOTAL: RM ${total.toFixed(2)}</div>
-                    <div class="item" style="font-size:10px; margin-top:5px;">Paid via: ${selectedMethod || '-'}</div>
-                </div>
-                <div class="footer">
-                    Thank you for your visit!<br>Please come again.
-                </div>
-                <script>window.print();</script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-    };
+        // 1. 强力库存检查
+        const productsToUpdate = cartItems.filter(i => i.type === 'product');
+        for (const item of productsToUpdate) {
+            const productData = allProducts.find(p => p.id === item.id);
+            if (productData) {
+                const currentStock = parseInt(productData.stock || 0);
+                if (item.quantity > currentStock) {
+                    showToast(`⛔ 错误：${item.name} 库存不足！仅剩 ${currentStock}`);
+                    confirmBtn.innerText = "❌ 库存不足";
+                    setTimeout(() => { confirmBtn.disabled = false; renderCart(); }, 2000);
+                    return; 
+                }
+            }
+        }
 
-    const bindEvents = () => {
-        document.getElementById('closeCashierBtn').addEventListener('click', () => modal.remove());
+        const finalTotal = parseFloat(confirmBtn.dataset.total);
+        const now = new Date().toISOString();
+        const receiptNo = booking.receiptNumber || generateReceiptNumber();
+
+        // 2. 扣库存
+        for (const item of productsToUpdate) {
+            const productData = allProducts.find(p => p.id === item.id);
+            if (productData) {
+                const newStock = Math.max(0, productData.stock - item.quantity);
+                await updateRecord(productData, { stock: newStock });
+            }
+        }
+
+        // 3. 更新预约单
+        await updateRecord(booking, {
+            status: 'completed',
+            paymentMethod: selectedMethod,
+            totalAmount: finalTotal,
+            receiptNumber: receiptNo,
+            items: cartItems,
+            completedAt: now,
+            adjustment: document.getElementById('posAdjustment').value
+        });
+
+        // 4. 创建总订单记录
+        await createRecord({
+            type: 'order',
+            bookingId: booking.id,
+            items: cartItems,
+            totalAmount: finalTotal,
+            paymentMethod: selectedMethod,
+            createdAt: now,
+            receiptNumber: receiptNo,
+            status: 'completed'
+        });
+
+        // 5. 🔥 清理工作：
+        // A. 清空购物车
+        if (currentCustomer && currentCustomer.cart && currentCustomer.cart.length > 0) {
+            await updateRecord(currentCustomer, { cart: [] });
+        }
         
-        // 加购
-        document.getElementById('addExtraBtn')?.addEventListener('click', () => {
-            const name = document.getElementById('extraName').value;
-            const price = parseFloat(document.getElementById('extraPrice').value);
-            if(name && price) { items.push({ name, price, type: 'product' }); refresh(); }
-        });
-
-        // 打印按钮
-        document.getElementById('printBtn')?.addEventListener('click', printReceipt);
-
-        // 支付方式
-        document.querySelectorAll('.pay-btn').forEach(btn => {
-            if(btn.dataset.method === selectedMethod) btn.classList.add('bg-pink-50', 'border-pink-500', 'text-pink-600');
-            btn.addEventListener('click', () => {
-                selectedMethod = btn.dataset.method;
-                refresh();
-                const confirmBtn = document.getElementById('confirmPayBtn');
-                confirmBtn.disabled = false;
-                confirmBtn.style.opacity = '1';
-                confirmBtn.style.cursor = 'pointer';
-            });
-        });
-
-        // 📱 显示二维码弹窗
-        document.getElementById('showQrBtn')?.addEventListener('click', (e) => {
-            e.stopPropagation(); // 防止触发父按钮点击
-            if (settings.tng_qr_url) {
-                const qrModal = document.createElement('div');
-                qrModal.className = 'fixed inset-0 z-[60] flex items-center justify-center p-4';
-                qrModal.style.background = 'rgba(0,0,0,0.8)';
-                qrModal.innerHTML = `
-                    <div class="bg-white p-4 rounded-xl max-w-sm w-full relative animate-fade-in-down text-center">
-                        <h3 class="font-bold text-lg mb-4 text-blue-600">📲 扫码支付</h3>
-                        <img src="${settings.tng_qr_url}" class="w-full h-auto rounded-lg mb-2">
-                        <p class="text-xs text-gray-500">支持 TNG eWallet / DuitNow</p>
-                        <button id="closeQr" class="mt-4 w-full py-3 bg-gray-100 rounded-lg font-bold">关闭</button>
-                    </div>
-                `;
-                document.body.appendChild(qrModal);
-                document.getElementById('closeQr').addEventListener('click', () => qrModal.remove());
-                qrModal.addEventListener('click', (e) => { if(e.target===qrModal) qrModal.remove(); });
-            } else {
-                showToast('❌ 还没有上传二维码哦，请去设置里添加');
+        // B. 标记被合并的 Pending 订单为“已完成” (防止重复处理)
+        if (mergedOrderIds.length > 0) {
+            for (const orderId of mergedOrderIds) {
+                const originalOrder = allOrders.find(o => o.id === orderId);
+                // 更新状态，并把这张旧单子关联到新的收据号上
+                if (originalOrder) await updateRecord(originalOrder, { 
+                    status: 'completed', 
+                    mergedToReceipt: receiptNo,
+                    completedAt: now 
+                });
             }
-        });
+        }
 
-        // 确认收款 (原有逻辑)
-        document.getElementById('confirmPayBtn')?.addEventListener('click', async () => {
-            const total = items.reduce((sum, i) => sum + i.price, 0);
-            if (booking) await updateRecord(booking, { 
-            status: 'completed', 
-                paymentMethod: selectedMethod, 
-                actualPaid: total,
-                completedAt: new Date().toISOString() // 👈 补上这一句！有了它，后悔药才生效！
-            });
-            // 生成 WhatsApp
-            const sstAmount = hasSST ? (total - (total / (1 + (sstRate / 100)))) : 0;
-            const subTotal = total - sstAmount;
-            let receiptText = `*🧾 电子收据 (E-Receipt)*\n*${settings.shop_name || 'Gem Brow'}*\n------------------------\n📅 ${new Date().toLocaleDateString()}\n`;
-            items.forEach(i => receiptText += `${i.name}: RM ${i.price.toFixed(2)}\n`);
-            receiptText += `------------------------\n`;
-            if (hasSST && settings.show_sst_on_receipt) {
-                receiptText += `Subtotal: RM ${subTotal.toFixed(2)}\nSST (${sstRate}%): RM ${sstAmount.toFixed(2)}\n`;
-                if(settings.sst_id) receiptText += `(SST ID: ${settings.sst_id})\n`;
-            }
-            receiptText += `*TOTAL: RM ${total.toFixed(2)}*\n------------------------\nPaid via: ${selectedMethod}\n\nThank you! ✨`;
-
-            if(booking && booking.customerPhone) {
-                window.open(`https://wa.me/${booking.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(receiptText)}`, '_blank');
-            } else {
-                alert("收款成功！(无电话，无法发 WhatsApp，建议打印)");
-            }
-            modal.remove();
-            renderApp();
-        });
-    };
-
-    bindEvents();
+        showToast(`✅ 收款成功！单号: ${receiptNo}`);
+        closeModal();
+        renderApp();
+        showReceiptModal(config, { ...booking, receiptNumber: receiptNo, totalAmount: finalTotal, items: cartItems, paymentMethod: selectedMethod, completedAt: now });
+    });
 }
 
 // ==========================================
@@ -4905,6 +5111,146 @@ function generateReceiptNumber() {
     return `${prefix}${seq}`;
 }
 
+// ==========================================
+// 👇 V1.2.X 新增：订单管理助手 (调数量/扣库存)
+// ==========================================
+
+// 1. 调整订单里的数量
+window.adjustOrderQty = async (orderId, itemIndex, change) => {
+    const orders = getDataByType('order');
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const item = order.items[itemIndex];
+    const newQty = item.quantity + change;
+
+    // 只能减到 1，不能减没 (要没就直接取消订单)
+    if (newQty < 1) return;
+
+    // 检查库存 (提示而已，还是允许改，因为还没扣)
+    const products = getDataByType('product');
+    const product = products.find(p => p.id === item.id);
+    if (product) {
+        if (newQty > product.stock) {
+            showToast(`⚠️ 警告：${product.name} 库存仅剩 ${product.stock}`);
+            // 这里我们允许他调大，但在点“完成”时会拦截
+        }
+    }
+
+    // 更新数量
+    item.quantity = newQty;
+    
+    // 重新计算总价
+    const newTotal = order.items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+    
+    await updateRecord(order, { 
+        items: order.items,
+        totalAmount: newTotal.toFixed(2)
+    });
+    
+    renderApp(); // 刷新界面
+};
+
+// 2. 完成订单 (并扣库存)
+window.completeOrderWithStock = async (orderId) => {
+    const orders = getDataByType('order');
+    const order = orders.find(o => o.id === orderId);
+    const products = getDataByType('product');
+    
+    if (!order) return;
+
+    // A. 检查库存
+    for (const item of order.items) {
+        const product = products.find(p => p.id === item.id);
+        if (!product) continue;
+        
+        if (item.quantity > product.stock) {
+            alert(`⛔ 无法完成！\n商品 [${item.name}] 库存不足。\n需要: ${item.quantity}\n当前: ${product.stock}\n\n请先点击 [-] 减少数量。`);
+            return;
+        }
+    }
+
+    // B. 扣减库存
+    for (const item of order.items) {
+        const product = products.find(p => p.id === item.id);
+        if (product) {
+            const newStock = product.stock - item.quantity;
+            await updateRecord(product, { stock: newStock });
+        }
+    }
+
+    // C. 更新订单状态
+    await updateRecord(order, { status: 'completed' });
+    
+    showToast('✅ 订单已完成，库存已扣除');
+    renderApp();
+};
+
+// 3. 取消订单 (如果之前是已完成，则要把库存加回去)
+// 注意：目前的 cancelOrderBtn 还是原来的逻辑，建议也换成这个
+// 在 attachEventListeners 里修改 cancelOrderBtn 的逻辑
+function setupOrderListeners(config) {
+    document.querySelectorAll('.cancelOrderBtn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const orders = getDataByType('order');
+            const o = orders.find(i => i.id === btn.dataset.id);
+            if (!o) return;
+
+            showConfirmModal(config, "确定取消这个订单吗？", async () => {
+                // 如果是“已完成”的订单被取消，要把库存还回去
+                if (o.status === 'completed') {
+                    const products = getDataByType('product');
+                    for (const item of o.items) {
+                        const product = products.find(p => p.id === item.id);
+                        if (product) {
+                            await updateRecord(product, { stock: product.stock + item.quantity });
+                        }
+                    }
+                    showToast('🔄 已撤销完成，库存已退回');
+                }
+                
+                await updateRecord(o, { status: 'cancelled' });
+                renderApp();
+            });
+        });
+    });
+}
+
+// ==========================================
+// 👇 V1.2.X 新增：展示 TNG 二维码大图
+// ==========================================
+function showQrPopup(qrUrl) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in';
+    
+    modal.innerHTML = `
+        <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-full text-center relative transform scale-100 transition-transform">
+            <h3 class="text-xl font-bold text-blue-600 mb-4 flex items-center justify-center gap-2">
+                <span>🔵</span> 扫码支付 (Touch 'n Go)
+            </h3>
+            
+            <div class="p-2 border-2 border-dashed border-blue-200 rounded-xl mb-4 inline-block bg-blue-50">
+                <img src="${qrUrl}" class="w-64 h-64 object-cover rounded-lg shadow-sm">
+            </div>
+            
+            <p class="text-gray-500 text-sm mb-6">请顾客使用 TNG eWallet 扫描</p>
+            
+            <button id="closeQrBtn" class="w-full py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+                关闭 / 已支付
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 关闭事件
+    const close = () => modal.remove();
+    document.getElementById('closeQrBtn').addEventListener('click', close);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) close();
+    });
+}
+
 async function updateMyProfile(accountId) {
     const newPhone = document.getElementById('myPhone').value;
     const newPass = document.getElementById('newPassword').value;
@@ -5026,6 +5372,17 @@ function handleFileWithCrop(file, inputId, previewId, placeholderId, isRound = f
 // 👇 V1.2.0 新增：更新日志系统 (Changelog)
 // ==========================================
 const appChangelog = [
+    {
+        version: "v1.3.0",
+        date: "2025-12-31",
+        title: "🚀 智能商业版 (Smart Business)",
+        features: [
+            "💰 <b>智能收银台</b>：支持关联库存商品、自动扣减库存、灵活改价。",
+            "🔗 <b>全渠道同步</b>：收银时自动合并顾客的“购物车”和“待处理订单”。",
+            "📦 <b>进销存管理</b>：商品支持录入库存，缺货时自动拦截交易。",
+            "📱 <b>扫码支付</b>：选择 TNG 支付时，自动弹出收款二维码大图。"
+        ]
+    },
     {
         version: "v1.2.0",
         date: "2025-12-31",
@@ -5181,4 +5538,4 @@ function handleVersionClick(config, version) {
 initApp();
 initGlobalWidgets();
 
-//Gem Brow beauty [v1.2.0]
+//Gem Brow beauty [v1.3.0]
