@@ -126,6 +126,7 @@ let loggedInCustomerName = '';
 let showRegisterForm = false;
 let searchQuery = '';
 let filterStatus = 'pending';
+let statsSearchQuery = '';
 let orderFilterStatus = 'pending';
 
 const defaultConfig = {
@@ -484,7 +485,7 @@ function renderApp() {
 }
 
 // ==========================================
-// 👇 最终版：极简卡片风 + 右上角神秘按钮
+// 👇 最终版：登录/注册页面 (已添加手机号必填)
 // ==========================================
 function renderLoginPage() {
     const app = document.getElementById('app');
@@ -536,11 +537,19 @@ function renderLoginPage() {
                         <form id="registerForm" class="space-y-5">
                             <div>
                                 <label class="block mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">用户名</label>
-                                <input type="text" id="regUsername" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-pink-500 focus:outline-none bg-gray-50 font-bold text-gray-700">
+                                <input type="text" id="regUsername" required placeholder="例如: amy_tan" class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-pink-500 focus:outline-none bg-gray-50 font-bold text-gray-700">
                             </div>
+                            
+                            <div>
+                                <label class="block mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">手机号码 (WhatsApp)</label>
+                                <input type="tel" id="regPhone" required placeholder="例如: 0123456789" 
+                                    onchange="this.value = cleanPhoneNumber(this.value)"
+                                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-green-500 focus:outline-none bg-green-50 font-bold text-gray-700">
+                            </div>
+
                             <div>
                                 <label class="block mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">邮箱</label>
-                                <input type="email" id="regEmail" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-pink-500 focus:outline-none bg-gray-50 font-bold text-gray-700">
+                                <input type="email" id="regEmail" required placeholder="例如: amy@gmail.com" class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-pink-500 focus:outline-none bg-gray-50 font-bold text-gray-700">
                             </div>
                             <div>
                                 <label class="block mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">密码</label>
@@ -593,31 +602,51 @@ function renderLoginPage() {
             if(!document.getElementById('agreeTerms').checked) {
                 alert("请先勾选同意条款！"); return;
             }
-            const success = await handleRegister(
-                document.getElementById('regUsername').value,
-                document.getElementById('regPassword').value,
-                document.getElementById('regEmail').value
-            );
-            if(success) location.reload();
+            
+            // 👇 获取所有输入值
+            const u = document.getElementById('regUsername').value;
+            const p = document.getElementById('regPassword').value;
+            const eMail = document.getElementById('regEmail').value;
+            const ph = document.getElementById('regPhone').value; // 获取手机号
+
+            // 检查用户名是否存在
+            const existingAccount = getDataByType('customer_account').find(acc => acc.username === u);
+            if (existingAccount) {
+                showToast('用户名已存在');
+                return;
+            }
+
+            const success = await createRecord({
+                type: 'customer_account',
+                username: u,
+                password: p,
+                email: eMail,
+                phone: cleanPhoneNumber(ph), // 👇 保存清洗后的手机号
+                points: 0,
+                lifetime_points: 0,
+                membershipLevel: 'bronze'
+            });
+
+            if(success) {
+                showToast('注册成功！请登录');
+                location.reload();
+            }
         });
         
-        // 👇 关键：分别为三个链接绑定事件
+        // 绑定条款链接点击事件
         document.getElementById('regLinkTerms').addEventListener('click', (e) => {
-            e.preventDefault(); // 防止勾选框被触发
-            showPolicyModal(config, 'terms');
+            e.preventDefault(); showPolicyModal(config, 'terms');
         });
         document.getElementById('regLinkPrivacy').addEventListener('click', (e) => {
-            e.preventDefault();
-            showPolicyModal(config, 'privacy');
+            e.preventDefault(); showPolicyModal(config, 'privacy');
         });
         document.getElementById('regLinkReturn').addEventListener('click', (e) => {
-            e.preventDefault();
-            showPolicyModal(config, 'return_policy');
+            e.preventDefault(); showPolicyModal(config, 'return_policy');
         });
 
         document.getElementById('showLoginBtn').addEventListener('click', () => { showRegisterForm = false; renderApp(); });
     } else {
-        // 登录逻辑保持不变
+        // 登录逻辑 (保持不变)
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = document.getElementById('loginUsername').value;
@@ -779,7 +808,7 @@ function renderOwnerView(config, services, bookings, posts, customers) {
     }
 
     // 3. 筛选逻辑 - 预约
-    const filteredBookings = bookings.filter(b => {
+    let filteredBookings = bookings.filter(b => {
         if (filterStatus === 'all') return true;
         return b.status === filterStatus;
     }).filter(b => {
@@ -790,6 +819,37 @@ function renderOwnerView(config, services, bookings, posts, customers) {
             b.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             matchReceipt;
     });
+
+    // 👇👇👇 新增：自定义排序逻辑 👇👇👇
+    if (filterStatus === 'all') {
+        // 策略：待确认 (Pending) 在最上面，按【旧到新】(越急越前)
+        //       其他 (Done/Cancel) 在下面，按【新到旧】(最近发生的在前)
+        
+        const pendingList = filteredBookings.filter(b => b.status === 'pending')
+            .sort((a, b) => new Date(`${a.appointmentDate}T${a.appointmentTime}`) - new Date(`${b.appointmentDate}T${b.appointmentTime}`));
+
+        const historyList = filteredBookings.filter(b => b.status !== 'pending')
+            .sort((a, b) => {
+                // 优先用实际操作时间，没有则用预约时间
+                const timeA = a.completedAt || a.cancelledAt || `${a.appointmentDate}T${a.appointmentTime}`;
+                const timeB = b.completedAt || b.cancelledAt || `${b.appointmentDate}T${b.appointmentTime}`;
+                return new Date(timeB) - new Date(timeA); // 降序 (新->旧)
+            });
+
+        filteredBookings = [...pendingList, ...historyList];
+
+    } else if (filterStatus === 'pending') {
+        // 待确认：按【旧到新】(先处理快到的预约)
+        filteredBookings.sort((a, b) => new Date(`${a.appointmentDate}T${a.appointmentTime}`) - new Date(`${b.appointmentDate}T${b.appointmentTime}`));
+
+    } else {
+        // 已完成 / 已取消：按【新到旧】(看最近的记录)
+        filteredBookings.sort((a, b) => {
+            const timeA = a.completedAt || a.cancelledAt || `${a.appointmentDate}T${a.appointmentTime}`;
+            const timeB = b.completedAt || b.cancelledAt || `${b.appointmentDate}T${b.appointmentTime}`;
+            return new Date(timeB) - new Date(timeA);
+        });
+    }
     
     // 4. 筛选逻辑 - 订单
     const filteredOrders = orders.filter(o => {
@@ -831,55 +891,72 @@ function renderOwnerView(config, services, bookings, posts, customers) {
                     ` : `
                         <div class="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                             ${filteredBookings.map(booking => {
-                                // 👇👇👇 新增：计算“后悔药”有效期 👇👇👇
+                                // 👇👇👇 1. 升级版后悔药逻辑 (支持 完成 & 取消) 👇👇👇
                                 let canRevert = false;
+                                let timeRef = null;
+
                                 if (booking.status === 'completed') {
-                                    if (booking.completedAt) {
-                                        const completeTime = new Date(booking.completedAt).getTime();
-                                        const now = Date.now();
-                                        const diffMins = (now - completeTime) / 1000 / 60;
-                                        // ⏳ 设定限制：只有 30 分钟内可以撤回
-                                        if (diffMins <= 30) canRevert = true;
-                                    } else {
-                                        // 旧数据没有 completedAt，默认不允许撤回 (安全起见)
-                                        canRevert = false;
-                                    }
+                                    timeRef = booking.completedAt;
+                                } else if (booking.status === 'cancelled') {
+                                    timeRef = booking.cancelledAt; // 取消也有时间戳了
                                 }
-                                // 👆👆👆 计算结束 👆👆👆
+
+                                if (timeRef) {
+                                    const actionTime = new Date(timeRef).getTime();
+                                    const now = Date.now();
+                                    const diffMins = (now - actionTime) / 1000 / 60;
+                                    // 30分钟内有效
+                                    if (diffMins <= 30) canRevert = true;
+                                }
+                                // 👆👆👆 逻辑结束 👆👆👆
 
                                 return `
-                                   <div style="background: rgba(255, 255, 255, 0.95); padding: 20px; border-radius: 12px; border-left: 4px solid ${booking.status === 'pending' ? config.secondary_action_color : '#e5e7eb'}; shadow-sm transition-all hover:shadow-md">
+                                   <div style="background: rgba(255, 255, 255, 0.95); padding: 20px; border-radius: 12px; border-left: 4px solid ${
+                                       booking.status === 'pending' ? config.secondary_action_color : 
+                                       booking.status === 'cancelled' ? '#ef4444' : '#e5e7eb'
+                                   }; shadow-sm transition-all hover:shadow-md">
                                       <div class="flex justify-between items-start">
                                          <div>
                                              <h3 style="font-weight: 700; color: ${config.text_color};">${booking.customerName}</h3>
                                              <p class="text-xs font-mono font-bold text-gray-400 mb-1">${booking.receiptNumber || '-'}</p>
                                              
                                              <p class="text-sm opacity-80">📞 ${booking.customerPhone}</p>
-                                             <p class="font-bold mt-1" style="color: ${config.primary_action_color};">💅 ${booking.serviceName}</p>
+                                             
+                                             ${booking.status === 'completed' ? `
+                                                <p class="text-xs mt-1 font-bold text-gray-500 flex items-center gap-1">
+                                                    💰 <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-600">${booking.paymentMethod || '未记录'}</span>
+                                                </p>
+                                             ` : ''}
+                                             
+                                             <p class="font-bold mt-2" style="color: ${config.primary_action_color};">💅 ${booking.serviceName}</p>
                                              <p class="text-sm mt-1">📅 ${booking.appointmentDate} ${booking.appointmentTime}</p>
-                                             ${booking.duration ? `<p class="text-xs text-gray-400">⏱️ ${booking.duration} min</p>` : ''}
                                          </div>
             
                                          <div class="flex flex-col gap-2 items-end">
-                                            <span style="font-size: 12px; padding: 2px 8px; rounded-full bg-gray-100">
+                                            <span style="font-size: 12px; padding: 2px 8px; rounded-full font-bold ${
+                                                booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                                                booking.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                                                'bg-red-100 text-red-700'
+                                            }">
                                                 ${booking.status === 'pending' ? '待确认' : booking.status === 'completed' ? '已完成' : '已取消'}
                                             </span>
 
-                                            <button onclick="showCashierModal(elementSdk.config, getDataByType('booking').find(b => b.id === '${booking.id}'))" 
-                                                style="background: #3b82f6; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);">
-                                                💰 收银/发单
-                                            </button>
+                                            ${booking.status !== 'cancelled' ? `
+                                                <button onclick="showCashierModal(elementSdk.config, getDataByType('booking').find(b => b.id === '${booking.id}'))" 
+                                                    style="background: #3b82f6; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);">
+                                                    💰 收银/发单
+                                                </button>
+                                            ` : ''}
 
                                             ${booking.status === 'pending' ? `
-                                                <div class="flex gap-1 mt-1">
-                                                    <button class="completeBookingBtn" data-id="${booking.id}" style="background: #10b981; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px;">完成</button>
+                                                <div class="flex gap-1 mt-1 justify-end">
                                                     <button class="cancelBookingBtn" data-id="${booking.id}" style="background: #ef4444; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px;">取消</button>
                                                 </div>
                                             ` : `
                                                 ${canRevert ? `
                                                     <div class="mt-1 flex flex-col items-end">
                                                         <button class="revertBookingBtn" data-id="${booking.id}" style="border: 1px solid #9ca3af; color: #4b5563; padding: 4px 8px; border-radius: 6px; font-size: 12px; background: white;">
-                                                            ↩️ 撤销完成
+                                                            ↩️ 撤销${booking.status === 'cancelled' ? '取消' : '完成'}
                                                         </button>
                                                         <span class="text-[10px] text-gray-400 mt-1">30分钟内有效</span>
                                                     </div>
@@ -1040,51 +1117,57 @@ function renderOwnerView(config, services, bookings, posts, customers) {
     `;
 }
 
+// ==========================================
+// 👇 升级版：数据统计 (支持搜单号 + 实际时间)
+// ==========================================
 function renderStats(config, services, bookings, customers, orders) {
-    // 1. 如果 orders 没传进来（兼容旧代码），自己去取
     const safeOrders = orders || getDataByType('order');
     const safeBookings = bookings || [];
     
-    // 2. 日期过滤辅助函数
+    // 日期过滤函数
     const isWithinDateRange = (dateStr) => {
         if (!dateStr) return false;
         const d = new Date(dateStr).toISOString().split('T')[0];
         return d >= statsStartDate && d <= statsEndDate;
     };
 
-    // 3. 过滤数据 (优先使用 completedAt 实际完成时间)
-    const filteredBookings = safeBookings.filter(b => {
-        // 如果有实际完成时间，就用它；否则用预约时间作为保底
+    // 1. 过滤日期 & 状态
+    let filteredBookings = safeBookings.filter(b => {
         const effectiveDate = b.completedAt || b.appointmentDate;
-        // 确保 effectiveDate 也是按照 YYYY-MM-DD 格式比较
         return b.status === 'completed' && isWithinDateRange(effectiveDate);
     });
+
+    // 2. 过滤搜索词
+    if (statsSearchQuery) {
+        const lowerQ = statsSearchQuery.toLowerCase();
+        filteredBookings = filteredBookings.filter(b => 
+            (b.receiptNumber && b.receiptNumber.toLowerCase().includes(lowerQ)) ||
+            b.customerName.toLowerCase().includes(lowerQ) ||
+            b.serviceName.toLowerCase().includes(lowerQ)
+        );
+    }
+
     const filteredOrders = safeOrders.filter(o => o.status === 'completed' && isWithinDateRange(o.createdAt));
     
-    // 4. 计算收入
+    // 计算收入
     const serviceRevenue = filteredBookings.reduce((sum, b) => sum + (parseFloat(b.totalAmount) || 0), 0);
     const productRevenue = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0), 0);
     const totalRevenue = serviceRevenue + productRevenue;
 
-    // 5. 统计商品销量 (Product Sales Stats)
-    const productStats = {}; // { '睫毛液': { quantity: 5, revenue: 100 } }
-    
+    // 商品统计 (省略部分代码，保持原样即可，为了省篇幅)
+    // ... (如果你需要我也能完整贴出，但这部分没变) ...
+    const productStats = {};
     filteredOrders.forEach(order => {
         order.items.forEach(item => {
-            if (!productStats[item.name]) {
-                productStats[item.name] = { quantity: 0, revenue: 0 };
-            }
+            if (!productStats[item.name]) productStats[item.name] = { quantity: 0, revenue: 0 };
             productStats[item.name].quantity += item.quantity;
             productStats[item.name].revenue += (item.price * item.quantity);
         });
     });
-    
-    // 转成数组并排序
     const sortedProducts = Object.entries(productStats)
         .map(([name, stat]) => ({ name, ...stat }))
-        .sort((a, b) => b.revenue - a.revenue); // 按销售额排序
+        .sort((a, b) => b.revenue - a.revenue);
 
-    // 6. 渲染页面
     return `
         <div class="min-h-full">
             <header class="bg-white shadow-sm sticky top-0 z-10 border-b-2" style="border-color: ${config.primary_action_color};">
@@ -1093,7 +1176,7 @@ function renderStats(config, services, bookings, customers, orders) {
                         <h1 class="text-xl font-bold" style="color: ${config.text_color};">📊 数据统计</h1>
                         <div class="flex gap-2">
                             <button onclick="window.print()" class="px-4 py-2 rounded-lg text-white text-sm font-bold shadow-md" style="background-color: ${config.secondary_action_color};">
-                                🖨️ 导出
+                                🖨️ 导出报表
                             </button>
                             <button onclick="currentView='manage'; renderApp()" class="px-4 py-2 rounded-lg border-2 text-sm font-bold" style="border-color: ${config.primary_action_color}; color: ${config.primary_action_color};">
                                 返回
@@ -1102,21 +1185,24 @@ function renderStats(config, services, bookings, customers, orders) {
                     </div>
                     
                     <div class="flex flex-wrap gap-4 items-end bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <div class="flex-1 min-w-[200px]">
+                            <label class="block text-xs font-bold text-gray-500 mb-1">🔍 搜索单号 / 客户</label>
+                            <input type="text" value="${statsSearchQuery}" 
+                                oninput="statsSearchQuery = this.value; renderApp()"
+                                placeholder="输入 MY-2501... 或 名字"
+                                class="w-full px-3 py-2 rounded border border-gray-300 text-sm focus:outline-none focus:border-pink-500">
+                        </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1">开始日期</label>
-                            <input type="date" id="statsStartInput" value="${statsStartDate}" 
-                                class="px-3 py-2 rounded border border-gray-300 text-sm">
+                            <input type="date" id="statsStartInput" value="${statsStartDate}" class="px-3 py-2 rounded border border-gray-300 text-sm">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1">结束日期</label>
-                            <input type="date" id="statsEndInput" value="${statsEndDate}" 
-                                class="px-3 py-2 rounded border border-gray-300 text-sm">
+                            <input type="date" id="statsEndInput" value="${statsEndDate}" class="px-3 py-2 rounded border border-gray-300 text-sm">
                         </div>
                         <button onclick="statsStartDate = document.getElementById('statsStartInput').value; statsEndDate = document.getElementById('statsEndInput').value; renderApp()" 
                             class="px-6 py-2 rounded text-white font-bold text-sm shadow-sm hover:opacity-90"
-                            style="background: ${config.primary_action_color};">
-                            🔍 查询
-                        </button>
+                            style="background: ${config.primary_action_color};">查询</button>
                     </div>
                 </div>
             </header>
@@ -1124,106 +1210,68 @@ function renderStats(config, services, bookings, customers, orders) {
             <main class="max-w-7xl mx-auto px-4 py-6">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-xl shadow-md border-l-4" style="border-color: ${config.primary_action_color};">
-                        <p class="text-sm opacity-70 mb-1">总收入 (服务+商品)</p>
-                        <h3 class="text-3xl font-bold" style="color: ${config.primary_action_color};">
-                            RM${totalRevenue.toFixed(2)}
-                        </h3>
-                        <p class="text-xs text-gray-400 mt-2">
-                            服务: ${serviceRevenue.toFixed(2)} | 商品: ${productRevenue.toFixed(2)}
-                        </p>
+                        <p class="text-sm opacity-70 mb-1">总收入</p>
+                        <h3 class="text-3xl font-bold" style="color: ${config.primary_action_color};">RM${totalRevenue.toFixed(2)}</h3>
                     </div>
                     <div class="bg-white p-6 rounded-xl shadow-md border-l-4" style="border-color: ${config.secondary_action_color};">
-                        <p class="text-sm opacity-70 mb-1">商品成交量</p>
-                        <h3 class="text-3xl font-bold" style="color: ${config.secondary_action_color};">
-                            ${filteredOrders.length} 单
-                        </h3>
+                        <p class="text-sm opacity-70 mb-1">商品销量</p>
+                        <h3 class="text-3xl font-bold" style="color: ${config.secondary_action_color};">${filteredOrders.length} 单</h3>
                     </div>
                     <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-gray-500">
-                        <p class="text-sm opacity-70 mb-1">服务完成数</p>
-                        <h3 class="text-3xl font-bold text-gray-700">
-                            ${filteredBookings.length} 单
-                        </h3>
+                        <p class="text-sm opacity-70 mb-1">服务单数</p>
+                        <h3 class="text-3xl font-bold text-gray-700">${filteredBookings.length} 单</h3>
                     </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-xl shadow-md mb-8">
-                    <h3 class="text-lg font-bold mb-4 border-b pb-2">💆‍♀️ 服务预约记录 (${statsStartDate} 至 ${statsEndDate})</h3>
+                    <h3 class="text-lg font-bold mb-4 border-b pb-2">💆‍♀️ 服务账单明细</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
-                                <tr class="text-sm text-gray-500 border-b">
-                                    <th class="py-2">日期</th>
-                                    <th class="py-2">客户</th>
-                                    <th class="py-2">项目</th>
-                                    <th class="py-2 text-right">金额</th>
+                                <tr class="text-sm text-gray-500 border-b bg-gray-50">
+                                    <th class="py-3 pl-2">日期 & 时间</th>
+                                    <th class="py-3">单号</th>
+                                    <th class="py-3">客户</th>
+                                    <th class="py-3">支付方式</th> <th class="py-3">项目</th>
+                                    <th class="py-3 text-right pr-2">金额</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${filteredBookings.length === 0 ? `
-                                    <tr><td colspan="4" class="text-center py-4 text-gray-400">该时间段无服务记录</td></tr>
-                                ` : filteredBookings
-                                    .sort((a, b) => {
-                                        // 排序也改成按“实际日期”排
-                                        const dateA = a.completedAt || a.appointmentDate;
-                                        const dateB = b.completedAt || b.appointmentDate;
-                                        return new Date(dateB) - new Date(dateA);
-                                    })
-                                    .map(b => {
-                                        // 👉 【核心修复】计算要显示的日期
-                                        // 如果有实际完成时间，就切分出 YYYY-MM-DD；否则显示预约日期
-                                        const displayDate = b.completedAt ? b.completedAt.split('T')[0] : b.appointmentDate;
-                                        
-                                        // 可选：如果是“实际完成”，可以加个小标记让账目更清楚
-                                        const dateBadge = b.completedAt && b.completedAt.split('T')[0] !== b.appointmentDate 
-                                            ? '<span style="font-size:10px; color:#ef4444;">(实)</span>' 
-                                            : '';
+                                ${filteredBookings.length === 0 ? `<tr><td colspan="6" class="text-center py-8 text-gray-400">无记录</td></tr>` : 
+                                filteredBookings.sort((a, b) => new Date(b.completedAt || b.appointmentDate) - new Date(a.completedAt || a.appointmentDate)).map(b => {
+                                    const isRealTime = !!b.completedAt;
+                                    const dateObj = new Date(isRealTime ? b.completedAt : b.appointmentDate);
+                                    const dateStr = dateObj.toLocaleDateString();
+                                    const timeStr = isRealTime ? dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : (b.appointmentTime || '');
+                                    
+                                    // 支付方式显示优化
+                                    let payBadge = '-';
+                                    if(b.paymentMethod === 'TNG') payBadge = '<span class="px-2 py-1 rounded bg-blue-100 text-blue-600 text-xs font-bold">TNG</span>';
+                                    else if(b.paymentMethod === 'Cash') payBadge = '<span class="px-2 py-1 rounded bg-green-100 text-green-600 text-xs font-bold">Cash</span>';
+                                    else if(b.paymentMethod === 'DuitNow') payBadge = '<span class="px-2 py-1 rounded bg-pink-100 text-pink-600 text-xs font-bold">DuitNow</span>';
+                                    else if(b.paymentMethod) payBadge = b.paymentMethod;
 
-                                        return `
-                                        <tr class="border-b last:border-0 hover:bg-gray-50">
-                                            <td class="py-3 text-sm">
-                                                ${displayDate} ${dateBadge}
-                                            </td>
-                                            <td class="py-3 text-sm font-medium">${b.customerName}</td>
-                                            <td class="py-3 text-sm text-gray-600">${b.serviceName}</td>
-                                            <td class="py-3 text-sm font-bold text-right" style="color: ${config.primary_action_color};">
-                                                RM${parseFloat(b.totalAmount).toFixed(2)}
-                                            </td>
-                                        </tr>
+                                    return `
+                                    <tr class="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                                        <td class="py-3 pl-2 text-sm">
+                                            <div class="font-bold text-gray-700">${dateStr}</div>
+                                            <div class="text-xs ${isRealTime ? 'text-green-600 font-bold' : 'text-gray-400'}">${timeStr} ${isRealTime ? '✅' : '(预约)'}</div>
+                                        </td>
+                                        <td class="py-3 text-sm font-mono font-bold text-gray-500">${b.receiptNumber || '-'}</td>
+                                        <td class="py-3 text-sm font-medium">${b.customerName}</td>
+                                        <td class="py-3 text-sm">${payBadge}</td> <td class="py-3 text-sm text-gray-600">${b.serviceName}</td>
+                                        <td class="py-3 text-sm font-bold text-right pr-2" style="color: ${config.primary_action_color};">RM${parseFloat(b.totalAmount).toFixed(2)}</td>
+                                    </tr>
                                     `;
                                 }).join('')}
                             </tbody>
                         </table>
                     </div>
                 </div>
-
+                
                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-lg font-bold mb-4 border-b pb-2">🛍️ 成交商品统计 (${statsStartDate} 至 ${statsEndDate})</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="text-sm text-gray-500 border-b">
-                                    <th class="py-2">商品名称</th>
-                                    <th class="py-2 text-center">销量 (件)</th>
-                                    <th class="py-2 text-right">总销售额</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${sortedProducts.length === 0 ? `
-                                    <tr><td colspan="3" class="text-center py-4 text-gray-400">该时间段无商品成交</td></tr>
-                                ` : sortedProducts.map(p => `
-                                    <tr class="border-b last:border-0 hover:bg-gray-50">
-                                        <td class="py-3 text-sm font-medium">${p.name}</td>
-                                        <td class="py-3 text-sm text-center bg-gray-50 rounded-lg font-bold text-gray-600">
-                                            ${p.quantity}
-                                        </td>
-                                        <td class="py-3 text-sm font-bold text-right" style="color: ${config.secondary_action_color};">
-                                            RM${p.revenue.toFixed(2)}
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
+                    <h3 class="text-lg font-bold mb-4 border-b pb-2">🛍️ 商品销售统计</h3>
+                    <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="text-sm text-gray-500 border-b"><th class="py-2">商品名称</th><th class="py-2 text-center">销量 (件)</th><th class="py-2 text-right">总销售额</th></tr></thead><tbody>${sortedProducts.length === 0 ? `<tr><td colspan="3" class="text-center py-4 text-gray-400">无记录</td></tr>` : sortedProducts.map(p => `<tr class="border-b last:border-0 hover:bg-gray-50"><td class="py-3 text-sm font-medium">${p.name}</td><td class="py-3 text-sm text-center bg-gray-50 rounded-lg font-bold text-gray-600">${p.quantity}</td><td class="py-3 text-sm font-bold text-right" style="color: ${config.secondary_action_color};">RM${p.revenue.toFixed(2)}</td></tr>`).join('')}</tbody></table></div>
                 </div>
 
             </main>
@@ -1231,71 +1279,62 @@ function renderStats(config, services, bookings, customers, orders) {
     `;
 }
 
+// ==========================================
+// 👇 客户管理列表 (已改为表格样式 + 显示电话)
+// ==========================================
 function renderCustomersManagement(config, customers, bookings) {
     return `
-                <div>
-                    <div class="flex justify-between items-center mb-8">
-                        <h2 style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color};">
-                            客户管理
-                        </h2>
-                        <button id="addCustomerBtn" class="btn-primary px-6 py-3 rounded-lg" style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff;">
-                            + 添加客户
-                        </button>
-                    </div>
-                    
-                    ${customers.length === 0 ? `
-                        <div class="text-center py-16" style="background: rgba(255, 255, 255, 0.95); border-radius: 16px;">
-                            <div style="font-size: 60px;">👥</div>
-                            <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 1.1}px; color: ${config.text_color}; opacity: 0.6;">
-                                暂无注册客户
-                            </p>
-                        </div>
-                    ` : `
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            ${customers.map(customer => {
-        const customerBookings = bookings.filter(b => b.customerName === customer.username);
-        const completedBookings = customerBookings.filter(b => b.status === 'completed');
-        const discount = getMembershipDiscount(customer.membershipLevel);
-        return `
-                                    <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                                        <div class="flex justify-between items-start mb-4">
-                                            <h3 style="font-size: ${config.font_size * 1.3}px; font-weight: 700; color: ${config.text_color};">
-                                                ${customer.username}
-                                            </h3>
-                                            ${getMembershipBadge(customer.membershipLevel, config)}
+        <div class="p-4">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold" style="color: ${config.primary_action_color};">👥 客户管理</h2>
+                <button id="addCustomerBtn" class="px-6 py-2 rounded-lg text-white font-bold shadow-md" 
+                    style="background: ${config.primary_action_color};">
+                    + 添加客户
+                </button>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="p-4 text-gray-500">用户名</th>
+                            <th class="p-4 text-gray-500">电话</th> <th class="p-4 text-gray-500">等级</th>
+                            <th class="p-4 text-gray-500 text-center">积分</th>
+                            <th class="p-4 text-gray-500 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${customers.length === 0 ? `
+                            <tr><td colspan="5" class="p-8 text-center text-gray-400">暂无客户</td></tr>
+                        ` : customers.map(acc => `
+                            <tr class="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                                <td class="p-4 font-bold text-gray-700">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
+                                            <img src="${acc.avatarUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}" class="w-full h-full object-cover">
                                         </div>
-                                        <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                            📧 ${customer.email}
-                                        </p>
-                                        <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                            ⭐ 积分: ${customer.points}
-                                        </p>
-                                        <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                            🎁 折扣: ${getMembershipDiscountText(customer.membershipLevel)}
-                                        </p>
-                                        <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 8px;">
-                                            📅 预约次数: ${customerBookings.length}
-                                        </p>
-                                        <p style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; opacity: 0.8; margin-bottom: 12px;">
-                                            ✅ 完成次数: ${completedBookings.length}
-                                        </p>
-                                        <div class="flex gap-2">
-                                            <button class="editCustomerBtn flex-1 py-2 rounded-lg" data-customer-id="${customer.id}"
-                                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 0.9}px;">
-                                                ✏️ 编辑
-                                            </button>
-                                            <button class="deleteCustomerBtn py-2 px-4 rounded-lg" data-customer-id="${customer.id}"
-                                                style="font-family: Lato, sans-serif; background: #ef4444; color: #ffffff; font-size: ${config.font_size * 0.9}px;">
-                                                🗑️
-                                            </button>
-                                        </div>
+                                        ${acc.username}
                                     </div>
-                                `;
-    }).join('')}
-                        </div>
-                    `}
-                </div>
-            `;
+                                </td>
+                                <td class="p-4 text-gray-600 font-mono">${acc.phone || '-'}</td> <td class="p-4">${getMembershipBadge(acc.membershipLevel, config)}</td>
+                                <td class="p-4 text-center font-bold text-purple-600">${acc.points}</td>
+                                <td class="p-4 text-right">
+                                    <button onclick="showEditCustomerModal(elementSdk.config, getDataByType('customer_account').find(c => c.id === '${acc.id}'))" 
+                                        class="text-blue-500 font-bold border border-blue-200 px-3 py-1 rounded hover:bg-blue-50 transition-colors">
+                                        ✏️ 编辑
+                                    </button>
+                                    <button class="deleteCustomerBtn text-red-500 font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition-colors ml-2" 
+                                        data-customer-id="${acc.id}">
+                                        🗑️
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
 // ==========================================
@@ -1308,7 +1347,7 @@ function renderSettings(config) {
 
     return `
         <div class="pb-32"> <h2 style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color}; margin-bottom: 24px;">
-                ⚙️ 系统设置 (v1.1.1)
+                ⚙️ 系统设置 (v1.1.2)
             </h2>
             
             <form id="discountSettingsForm">
@@ -2117,7 +2156,10 @@ function attachEventListeners(config, services, bookings, posts) {
     document.querySelectorAll('.cancelBookingBtn').forEach(btn => {
         btn.addEventListener('click', () => {
             const b = bookings.find(i => i.id === btn.dataset.id);
-            if (b) showConfirmModal(config, "确定取消此预约？", async () => updateRecord(b, { status: 'cancelled' }));
+            if (b) showConfirmModal(config, "确定取消此预约？", async () => updateRecord(b, { 
+                status: 'cancelled', 
+                cancelledAt: new Date().toISOString() // 👈 加上这个，后悔药才能生效！
+            }));
         });
     });
 
@@ -2309,66 +2351,62 @@ function attachEventListeners(config, services, bookings, posts) {
     });
 }
 
-// Modal functions
+// ==========================================
+// 👇 添加客户弹窗 (已加入电话号码字段)
+// ==========================================
 function showAddCustomerModal(config) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     modal.innerHTML = `
-                <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                    <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                        添加新客户
-                    </h3>
-                    
-                    <form id="addCustomerForm">
-                        <div class="mb-4">
-                            <label for="newCustomerUsername" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                用户名
-                            </label>
-                            <input type="text" id="newCustomerUsername" required
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label for="newCustomerEmail" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                邮箱
-                            </label>
-                            <input type="email" id="newCustomerEmail" required
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label for="newCustomerPassword" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                初始密码
-                            </label>
-                            <input type="password" id="newCustomerPassword" required
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-                        
-                        <div class="mb-6">
-                            <label for="newCustomerPoints" class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">
-                                初始积分
-                            </label>
-                            <input type="number" id="newCustomerPoints" value="0" min="0"
-                                class="w-full px-4 py-3 rounded-lg border-2"
-                                style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
-                        </div>
-                        
-                        <div class="flex gap-3">
-                            <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">
-                                添加客户
-                            </button>
-                            <button type="button" id="cancelAddCustomerBtn" class="flex-1 py-3 rounded-lg"
-                                style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">
-                                取消
-                            </button>
-                        </div>
-                    </form>
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <h3 class="mb-6 text-xl font-bold" style="color: ${config.primary_action_color};">
+                添加新客户
+            </h3>
+            
+            <form id="addCustomerForm">
+                <div class="mb-4">
+                    <label class="block mb-2 font-bold text-sm text-gray-600">用户名</label>
+                    <input type="text" id="newCustomerUsername" required placeholder="Amy"
+                        class="w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:border-pink-500">
                 </div>
-            `;
+
+                <div class="mb-4">
+                    <label class="block mb-2 font-bold text-sm text-gray-600">电话号码</label>
+                    <input type="tel" id="newCustomerPhone" required placeholder="0123456789"
+                        onchange="this.value = cleanPhoneNumber(this.value)"
+                        class="w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:border-green-500 bg-green-50">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block mb-2 font-bold text-sm text-gray-600">邮箱</label>
+                    <input type="email" id="newCustomerEmail" required placeholder="amy@example.com"
+                        class="w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:border-pink-500">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block mb-2 font-bold text-sm text-gray-600">初始密码</label>
+                    <input type="password" id="newCustomerPassword" required value="123456"
+                        class="w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:border-pink-500">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block mb-2 font-bold text-sm text-gray-600">初始积分</label>
+                    <input type="number" id="newCustomerPoints" value="0" min="0"
+                        class="w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:border-pink-500">
+                </div>
+                
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 py-3 rounded-lg font-bold text-white shadow-md"
+                        style="background: ${config.primary_action_color};">
+                        确认添加
+                    </button>
+                    <button type="button" id="cancelAddCustomerBtn" class="flex-1 py-3 rounded-lg font-bold border-2 text-gray-500">
+                        取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
 
     document.body.appendChild(modal);
 
@@ -2378,40 +2416,35 @@ function showAddCustomerModal(config) {
         const username = document.getElementById('newCustomerUsername').value;
         const email = document.getElementById('newCustomerEmail').value;
         const password = document.getElementById('newCustomerPassword').value;
+        const phone = document.getElementById('newCustomerPhone').value; // 获取电话
         const points = parseInt(document.getElementById('newCustomerPoints').value);
 
-        // Check if username already exists
+        // 检查用户名是否存在
         const existingCustomer = getDataByType('customer_account').find(c => c.username === username);
         if (existingCustomer) {
             showToast('用户名已存在');
             return;
         }
 
-        const membershipLevel = calculateMembershipLevel(points);
-
         const success = await createRecord({
             type: 'customer_account',
             username: username,
             email: email,
+            phone: cleanPhoneNumber(phone), // 保存前清洗号码
             password: password,
             points: points,
-            membershipLevel: membershipLevel
+            membershipLevel: calculateMembershipLevel(points),
+            lifetime_points: points // 初始历史积分等于当前积分
         });
 
         if (success) {
+            showToast('✅ 客户添加成功');
             modal.remove();
         }
     });
 
-    document.getElementById('cancelAddCustomerBtn').addEventListener('click', () => {
-        modal.remove();
-    });
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.remove();
-        }
-    });
+    document.getElementById('cancelAddCustomerBtn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
 function showServiceModal(config) {
@@ -2652,6 +2685,7 @@ function showPostModal(config) {
 function showBookingModal(config, serviceId, serviceName, servicePrice) {
     const customerAccount = loggedInCustomerName ?
         getDataByType('customer_account').find(acc => acc.username === loggedInCustomerName) : null;
+    const prefillPhone = customerAccount ? (customerAccount.phone || '') : '';
     const availablePoints = customerAccount ? customerAccount.points : 0;
     const settings = getDiscountSettings();
     const pointsToRmRate = settings.points_to_rm_rate || 10;
@@ -2680,7 +2714,7 @@ function showBookingModal(config, serviceId, serviceName, servicePrice) {
             
                 <div class="mb-4">
                     <label class="block mb-1 font-bold text-sm">电话</label>
-                    <input type="tel" id="customerPhone" required
+                    <input type="tel" id="customerPhone" required value="${prefillPhone}"
                         class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
                 </div>
             
@@ -2967,7 +3001,6 @@ function showEditCustomerModal(config, customer) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     
-    // 获取当前的等级，如果没有就默认 bronze
     const currentLevel = customer.membershipLevel || 'bronze';
 
     modal.innerHTML = `
@@ -2978,6 +3011,13 @@ function showEditCustomerModal(config, customer) {
             </div>
             
             <form id="editCustomerForm" class="p-6">
+                
+                <div class="mb-4">
+                    <label class="block mb-1 font-bold text-sm text-gray-600">电话号码</label>
+                    <input type="tel" id="editPhone" value="${customer.phone || ''}" 
+                        onchange="this.value = cleanPhoneNumber(this.value)"
+                        class="w-full px-4 py-2 rounded-lg border focus:outline-none focus:border-green-500 bg-green-50">
+                </div>
                 <div class="mb-4">
                     <label class="block mb-1 font-bold text-sm text-gray-600">电子邮箱</label>
                     <input type="email" id="editEmail" value="${customer.email || ''}" 
@@ -3021,19 +3061,18 @@ function showEditCustomerModal(config, customer) {
 
     document.body.appendChild(modal);
 
-    // 绑定事件
     document.getElementById('cancelEditBtn').addEventListener('click', () => modal.remove());
     
     document.getElementById('editCustomerForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const updates = {
+            phone: cleanPhoneNumber(document.getElementById('editPhone').value), // 保存电话
             email: document.getElementById('editEmail').value,
             points: parseInt(document.getElementById('editPoints').value),
-            membershipLevel: document.getElementById('editMembership').value // 这里的 value 是 bronze/silver...
+            membershipLevel: document.getElementById('editMembership').value 
         };
 
-        // 获取新密码逻辑
         const newPass = document.getElementById('resetPassword').value;
         if(newPass && newPass.trim() !== '') {
             updates.password = newPass.trim();
@@ -3044,11 +3083,12 @@ function showEditCustomerModal(config, customer) {
 
         await updateRecord(customer, updates);
         modal.remove();
-        renderApp(); // 刷新列表
+        renderApp();
     });
 
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
+
 // ==========================================
 // 👇 编辑个人资料 (加入头像上传功能)
 // ==========================================
@@ -3056,7 +3096,6 @@ function showEditProfileModal(config, customer) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     
-    // 默认头像
     const defaultAvatar = 'https://cdn-icons-png.flaticon.com/512/847/847969.png'; 
     
     modal.innerHTML = `
@@ -3085,6 +3124,13 @@ function showEditProfileModal(config, customer) {
                     <input type="text" id="editProfileUsername" required value="${customer.username}"
                         class="w-full px-4 py-3 rounded-lg border-2" style="border-color: ${config.text_color}33;">
                 </div>
+
+                <div class="mb-4">
+                    <label class="block mb-2 font-bold text-gray-700">电话号码</label>
+                    <input type="tel" id="editProfilePhone" required value="${customer.phone || ''}"
+                        onchange="this.value = cleanPhoneNumber(this.value)"
+                        class="w-full px-4 py-3 rounded-lg border-2 bg-green-50 focus:border-green-500" style="border-color: ${config.text_color}33;">
+                </div>
                 <div class="mb-4">
                     <label class="block mb-2 font-bold text-gray-700">邮箱</label>
                     <input type="email" id="editProfileEmail" required value="${customer.email}"
@@ -3109,7 +3155,7 @@ function showEditProfileModal(config, customer) {
 
     document.body.appendChild(modal);
 
-    // === 图片上传逻辑 ===
+    // 图片上传逻辑
     const dropZone = document.getElementById('avatarDropZone');
     const fileInput = document.getElementById('avatarFileInput');
     const preview = document.getElementById('avatarPreview');
@@ -3117,11 +3163,10 @@ function showEditProfileModal(config, customer) {
 
     dropZone.addEventListener('click', () => fileInput.click());
 
-    fileInput.addEventListener('change', async (e) => { // 👈 加 async
+    fileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
             try {
-                // 👇 压缩头像：最大宽 300px，质量 0.7
                 const compressedBase64 = await compressImage(file, 300, 0.7);
                 preview.src = compressedBase64; 
                 hiddenInput.value = compressedBase64; 
@@ -3135,9 +3180,10 @@ function showEditProfileModal(config, customer) {
         e.preventDefault();
 
         const newUsername = document.getElementById('editProfileUsername').value.trim();
+        const newPhone = document.getElementById('editProfilePhone').value.trim(); // 获取电话
         const newEmail = document.getElementById('editProfileEmail').value.trim();
         const newPassword = document.getElementById('editProfilePassword').value;
-        const newAvatar = document.getElementById('avatarBase64').value; // ✅ 获取新头像
+        const newAvatar = document.getElementById('avatarBase64').value;
 
         if (!newUsername || !newEmail) {
             showToast('用户名和邮箱不能为空');
@@ -3154,8 +3200,9 @@ function showEditProfileModal(config, customer) {
 
         const updates = {
             username: newUsername,
+            phone: cleanPhoneNumber(newPhone), // 保存电话
             email: newEmail,
-            avatarUrl: newAvatar // ✅ 保存头像
+            avatarUrl: newAvatar
         };
 
         if (newPassword && newPassword.length >= 4) {
@@ -4810,6 +4857,22 @@ function generateReceiptNumber() {
     
     const seq = (monthlyCount + 1).toString().padStart(4, '0'); // 0001
     return `${prefix}${seq}`;
+}
+
+async function updateMyProfile(accountId) {
+    const newPhone = document.getElementById('myPhone').value;
+    const newPass = document.getElementById('newPassword').value;
+    
+    const accounts = getDataByType('customer_account');
+    const myAccount = accounts.find(a => a.id === accountId);
+    
+    if (myAccount) {
+        const updateData = { phone: cleanPhoneNumber(newPhone) };
+        if (newPass) updateData.password = newPass;
+        
+        await updateRecord(myAccount, updateData);
+        showToast('✅ 资料已更新');
+    }
 }
 
 initApp();
