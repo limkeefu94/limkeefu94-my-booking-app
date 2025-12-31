@@ -1308,7 +1308,7 @@ function renderSettings(config) {
 
     return `
         <div class="pb-32"> <h2 style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color}; margin-bottom: 24px;">
-                ⚙️ 系统设置 (v1.1.0)
+                ⚙️ 系统设置 (v1.1.1)
             </h2>
             
             <form id="discountSettingsForm">
