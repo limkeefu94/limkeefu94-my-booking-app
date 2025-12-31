@@ -500,7 +500,7 @@ function renderLoginPage() {
     // 决定显示什么 Logo
     const displayLogo = settings.logo_login || settings.logo_url;
     const logoContent = displayLogo
-        ? `<img src="${displayLogo}" class="w-full h-full object-contain filter drop-shadow-md">` 
+        ? `<img src="${displayLogo}" class="w-full h-full object-cover rounded-full filter drop-shadow-md">` 
         : `<span class="text-5xl">💎</span>`;
 
     app.innerHTML = `
@@ -508,7 +508,7 @@ function renderLoginPage() {
             <div class="max-w-md w-full">
                 
                 <div class="text-center mb-8 animate-fade-in-down">
-                    <div class="w-28 h-28 bg-white rounded-full mx-auto flex items-center justify-center shadow-lg mb-6 transform hover:rotate-12 transition-transform duration-300 overflow-hidden p-2">
+                    <div class="w-28 h-28 bg-white rounded-full mx-auto flex items-center justify-center shadow-lg mb-6 transform hover:rotate-12 transition-transform duration-300 overflow-hidden">
                         ${logoContent}
                     </div>
                     <h1 class="text-center mb-2" style="font-family: 'Lato', sans-serif; font-size: ${config.font_size * 1.5}px; color: ${config.text_color}; font-weight: 700; letter-spacing: 1px;">
@@ -712,7 +712,7 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
         <div class="min-h-full">
             <header style="background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; border-bottom: 3px solid ${config.primary_action_color};">
                 <div class="max-w-7xl mx-auto px-6 py-2 flex justify-between items-center">
-                    <img src="${settings.logo_header || settings.logo_url || './assets/header_logo.png'}" alt="${config.app_title}" class="header-logo-img" style="height: 40px; object-fit: contain;">
+                    <img src="${settings.logo_header || settings.logo_url || './assets/header_logo.png'}" alt="${config.app_title}" class="header-logo-img rounded-full" style="height: 40px; width: 40px; object-fit: cover;">
                     <button id="menuBtn" class="px-4 py-2 rounded-lg" style="border: 2px solid ${config.primary_action_color}; background: ${config.primary_action_color}22; color: ${config.primary_action_color}; font-family: Lato, sans-serif;">
                         ☰ 菜单
                     </button>
@@ -1346,9 +1346,37 @@ function renderSettings(config) {
     const currentOwner = owners.length > 0 ? owners[0] : ownerCredentials;
 
     return `
-        <div class="pb-32"> <h2 style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color}; margin-bottom: 24px;">
-                ⚙️ 系统设置 (v1.1.2)
-            </h2>
+        <div class="pb-32">
+            <div class="flex items-center gap-3 mb-6">
+                <h2 style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color}; margin-bottom: 0;">
+                    ⚙️ 系统设置
+                </h2>
+                
+                ${(() => {
+                    const currentVersion = 'v1.2.0';
+                    // 检查是否已读
+                    const lastSeen = localStorage.getItem('gembrow_last_seen_version');
+                    const showBadge = lastSeen !== currentVersion;
+
+                    return `
+                    <button onclick="handleVersionClick(elementSdk.config, '${currentVersion}')" 
+                        class="px-3 py-1 rounded-full bg-pink-100 text-pink-600 text-xs font-bold hover:bg-pink-200 transition-colors cursor-pointer relative group">
+                        ${currentVersion}
+                        
+                        ${showBadge ? `
+                            <span id="versionBadge" class="absolute -top-1 -right-1 flex h-3 w-3">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-3 w-3 bg-pink-500"></span>
+                            </span>
+                        ` : ''}
+                        
+                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                            点击查看更新内容
+                        </div>
+                    </button>
+                    `;
+                })()}
+                </div>
             
             <form id="discountSettingsForm">
                 
@@ -2199,24 +2227,20 @@ function attachEventListeners(config, services, bookings, posts) {
         });
     });
 
-    // === 6. Logo 上传事件 ===
-    document.getElementById('logoInput')?.addEventListener('change', function(e) {
-        handleImageUpload(e, 'logoPreview', 'logoPlaceholder', 'logoData');
-    });
-
-    // 👇 新增：TNG 二维码上传监听
-    document.getElementById('tngQrInput')?.addEventListener('change', function(e) {
-        handleImageUpload(e, 'tngQrPreview', 'tngQrPlaceholder', 'tngQrUrl');
-    });
-
-    // 登录页 Logo
+    // === 6. Logo 上传事件 (已升级：Logo 圆形，QR 方形) ===
     document.getElementById('logoLoginInput')?.addEventListener('change', function(e) {
-        handleImageUpload(e, 'loginLogoPreviewImg', 'loginLogoPlaceholder', 'logoLoginUrl');
+        // 👇 最后一个参数 true 代表圆形
+        handleFileWithCrop(e.target.files[0], 'logoLoginUrl', 'loginLogoPreviewImg', 'loginLogoPlaceholder', true);
     });
 
-    // 顶部 Logo
     document.getElementById('logoHeaderInput')?.addEventListener('change', function(e) {
-        handleImageUpload(e, 'headerLogoPreviewImg', 'headerLogoPlaceholder', 'logoHeaderUrl');
+        // 👇 最后一个参数 true 代表圆形
+        handleFileWithCrop(e.target.files[0], 'logoHeaderUrl', 'headerLogoPreviewImg', 'headerLogoPlaceholder', true);
+    });
+
+    document.getElementById('tngQrInput')?.addEventListener('change', function(e) {
+        // 👇 ⚠️ 二维码必须是方形 (false)，切圆了会扫不到
+        handleFileWithCrop(e.target.files[0], 'tngQrUrl', 'tngQrPreview', 'tngQrPlaceholder', false);
     });
 
     // === 7. 设置保存 ===
@@ -2550,7 +2574,24 @@ function showServiceModal(config) {
     });
 
     dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            openCropperModal(file, (base64) => {
+                // imageInput 是你在各函数里定义的输入框变量名
+                // imagePreview 是预览图变量名
+                if (typeof imageInput !== 'undefined') imageInput.value = base64;
+                if (typeof updatePreview === 'function') {
+                    updatePreview(base64); 
+                } else if (typeof imagePreview !== 'undefined') {
+                    // 兼容旧逻辑
+                    imagePreview.src = base64;
+                    imagePreview.style.display = 'block';
+                    if(typeof uploadText !== 'undefined') uploadText.style.display = 'none';
+                }
+            });
+        }
+    });
 
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -3163,16 +3204,14 @@ function showEditProfileModal(config, customer) {
 
     dropZone.addEventListener('click', () => fileInput.click());
 
-    fileInput.addEventListener('change', async (e) => {
+    fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            try {
-                const compressedBase64 = await compressImage(file, 300, 0.7);
-                preview.src = compressedBase64; 
-                hiddenInput.value = compressedBase64; 
-            } catch (err) {
-                showToast('❌ 图片上传失败');
-            }
+            // 👇 这里的 true 代表开启圆形裁剪
+            openCropperModal(file, (base64) => {
+                preview.src = base64;
+                hiddenInput.value = base64; 
+            }, true); 
         }
     });
 
@@ -3452,6 +3491,20 @@ async function onConfigChange(config) {
 
 // Initialize app
 async function initApp() {
+    // 👇👇👇 1. V1.2.0 新增：自动加载 Cropper.js (图片裁剪库) 👇👇👇
+    if (!document.getElementById('cropper-css')) {
+        const link = document.createElement('link');
+        link.id = 'cropper-css';
+        link.rel = 'stylesheet';
+        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css';
+        document.head.appendChild(link);
+    }
+    if (!window.Cropper) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js';
+        document.head.appendChild(script);
+    }
+
     if (window.elementSdk) {
         await window.elementSdk.init({
             defaultConfig,
@@ -3576,13 +3629,10 @@ function showEditServiceModal(config, service) {
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-             if (file.size > 307200) { alert('图片太大'); return; }
-             const reader = new FileReader();
-             reader.onload = (evt) => {
-                 imageInput.value = evt.target.result;
-                 updatePreview(evt.target.result);
-             };
-             reader.readAsDataURL(file);
+            openCropperModal(file, (base64) => {
+                imageInput.value = base64;
+                updatePreview(base64);
+            });
         }
     });
 
@@ -3676,15 +3726,13 @@ function showProductModal(config) {
     };
     imageInput.addEventListener('input', () => updatePreview(imageInput.value));
     dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', async (e) => { // 👈 加 async
+    fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-             try {
-                 // 👇 商品图，最大宽 800px
-                 const compressedBase64 = await compressImage(file, 800, 0.7);
-                 imageInput.value = compressedBase64; 
-                 updatePreview(compressedBase64);
-             } catch (err) { console.error(err); }
+            openCropperModal(file, (base64) => {
+                imageInput.value = base64;
+                updatePreview(base64);
+            });
         }
     });
 
@@ -3772,10 +3820,10 @@ function showEditProductModal(config, product) {
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-             if (file.size > 307200) { alert('图片太大'); return; }
-             const reader = new FileReader();
-             reader.onload = (evt) => { imageInput.value = evt.target.result; updatePreview(evt.target.result); };
-             reader.readAsDataURL(file);
+            openCropperModal(file, (base64) => {
+                imageInput.value = base64;
+                updatePreview(base64);
+            });
         }
     });
 
@@ -4042,15 +4090,13 @@ function showPostModal(config) {
     };
     imageInput.addEventListener('input', () => updatePreview(imageInput.value));
     dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', async (e) => {
+    fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-             try {
-                 // 👇 动态图，最大宽 800px
-                 const compressedBase64 = await compressImage(file, 800, 0.7);
-                 imageInput.value = compressedBase64; 
-                 updatePreview(compressedBase64);
-             } catch (err) { console.error(err); }
+            openCropperModal(file, (base64) => {
+                imageInput.value = base64;
+                updatePreview(base64);
+            });
         }
     });
 
@@ -4875,7 +4921,264 @@ async function updateMyProfile(accountId) {
     }
 }
 
+// ==========================================
+// 👇 V1.2.1 核心：智能裁剪器 (支持 圆形/方形 切换)
+// ==========================================
+function openCropperModal(imageFile, callback, isRound = false) { // 👈 新增 isRound 参数
+    if (!window.Cropper) {
+        showToast('⏳ 裁剪组件正在加载，请稍后再试...');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const rawImgSrc = e.target.result;
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 z-[100] bg-black flex flex-col'; 
+        
+        // 👇 只有 isRound 为 true 时，才注入圆形 CSS
+        if (isRound) {
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .cropper-view-box, .cropper-face {
+                    border-radius: 50%;
+                    outline: 0;
+                    box-shadow: 0 0 0 50vw rgba(0, 0, 0, 0.8);
+                    border: 2px solid rgba(255, 255, 255, 0.8);
+                }
+                .cropper-dashed, .cropper-point, .cropper-line { display: none !important; }
+            `;
+            modal.appendChild(style);
+        }
+
+        modal.innerHTML += `
+            <div class="flex-1 relative overflow-hidden bg-black p-4 flex items-center justify-center">
+                <img id="cropperImage" src="${rawImgSrc}" style="max-width: 100%; max-height: 80vh; display: block;">
+            </div>
+            
+            <div class="p-4 bg-gray-900 flex justify-between items-center gap-4 safe-area-bottom">
+                <button id="cancelCropBtn" class="px-6 py-3 rounded-xl font-bold text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+                    取消
+                </button>
+                <div class="text-white text-xs opacity-50 font-mono">
+                    ${isRound ? '圆形构图 (头像/Logo)' : '正方形构图 (1:1)'}
+                </div>
+                <button id="confirmCropBtn" class="px-8 py-3 rounded-xl font-bold text-black shadow-lg transform active:scale-95 transition-all" 
+                    style="background: #ffffff;">
+                    ✅ 确认使用
+                </button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const imageElement = document.getElementById('cropperImage');
+        const cropper = new Cropper(imageElement, {
+            aspectRatio: 1, // 始终保持 1:1 比例
+            viewMode: 1,    
+            dragMode: 'move',
+            autoCropArea: 0.8,
+            restore: false, guides: !isRound, // 方形时显示辅助线，圆形隐藏
+            center: true, highlight: false,
+            cropBoxMovable: false, cropBoxResizable: false, toggleDragModeOnDblclick: false,
+        });
+
+        document.getElementById('cancelCropBtn').addEventListener('click', () => modal.remove());
+
+        document.getElementById('confirmCropBtn').addEventListener('click', () => {
+            const btn = document.getElementById('confirmCropBtn');
+            btn.innerText = '处理中...';
+            
+            const canvas = cropper.getCroppedCanvas({
+                width: 800, height: 800,
+                imageSmoothingEnabled: true, imageSmoothingQuality: 'high',
+            });
+
+            const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85); 
+            callback(croppedDataUrl);
+            modal.remove();
+        });
+    };
+    reader.readAsDataURL(imageFile);
+}
+
+// 辅助函数：Logo上传专用
+function handleFileWithCrop(file, inputId, previewId, placeholderId, isRound = false) {
+    if (!file) return;
+    // 👇 把 isRound 传进去
+    openCropperModal(file, (croppedBase64) => {
+        const input = document.getElementById(inputId);
+        const img = document.getElementById(previewId);
+        const ph = document.getElementById(placeholderId);
+        
+        if (input) input.value = croppedBase64;
+        if (img) { img.src = croppedBase64; img.style.display = 'block'; }
+        if (ph) { ph.style.display = 'none'; }
+        
+        const uploadText = img?.parentElement?.querySelector('p');
+        if (uploadText) uploadText.style.display = 'none';
+
+        showToast('✅ 图片裁剪成功！');
+    }, isRound);
+}
+
+// ==========================================
+// 👇 V1.2.0 新增：更新日志系统 (Changelog)
+// ==========================================
+const appChangelog = [
+    {
+        version: "v1.2.0",
+        date: "2025-12-31",
+        title: "🎨 视觉进化版 (Visual Pro)",
+        features: [
+            "📸 <b>高级图片裁剪</b>：上传头像/Logo时支持拖拽裁剪，从此告别图片变形！",
+            "⚫ <b>智能构图</b>：头像和Logo自动开启圆形取景框，商品图保持正方形。",
+            "💅 <b>极致圆角</b>：登录页和顶部菜单的 Logo 全面升级为满屏圆形设计。",
+            "🚀 <b>性能优化</b>：图片上传自动压缩，系统运行更流畅。"
+        ]
+    },
+    {
+        version: "v1.1.2",
+        date: "2025-12-30",
+        title: "🛡️ 体验优化版",
+        features: [
+            "📊 <b>智能排序</b>：全部预约里“急件置顶”，历史记录按“最近发生”排序。",
+            "💊 <b>后悔药升级</b>：误点“取消预约”？30分钟内可以撤回了！",
+            "📱 <b>电话管理</b>：现在注册、个人中心和后台都能修改手机号。",
+            "🚫 <b>防误触</b>：已取消的订单会自动隐藏收银按钮。"
+        ]
+    },
+    {
+        version: "v1.1.1",
+        date: "2025-12-29",
+        title: "🎫 粉色门票 & 单号系统",
+        features: [
+            "🔢 <b>流水单号</b>：引入 MY-2501xxxx 格式的专业单号。",
+            "🎟️ <b>粉色入场券</b>：预约成功弹出精美票据，支持截图保存。",
+            "🕵️ <b>审计增强</b>：统计报表支持搜索单号，并显示精确完成时间。",
+            "💾 <b>设置吸附</b>：设置页保存按钮固定在底部，操作更方便。"
+        ]
+    },
+    {
+        version: "v1.0.0",
+        date: "2025-12-01",
+        title: "🚀 初始发布",
+        features: [
+            "基础预约功能上线",
+            "支持 TNG/Cash 收银",
+            "商品库存管理",
+            "WhatsApp 通知集成"
+        ]
+    }
+];
+
+function showChangelogModal(config, viewMode = 'latest') {
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-[100] p-4';
+    modal.style.background = 'rgba(0,0,0,0.6)'; // 半透明黑底
+    
+    let contentHtml = '';
+    
+    if (viewMode === 'latest') {
+        // --- 显示最新版本 ---
+        const latest = appChangelog[0];
+        contentHtml = `
+            <div class="text-center mb-6">
+                <div class="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-600 text-xs font-bold mb-2">LATEST UPDATE</div>
+                <h3 class="text-2xl font-bold" style="color: ${config.primary_action_color};">${latest.version}</h3>
+                <p class="text-sm text-gray-400 font-mono">${latest.date}</p>
+                <h4 class="text-lg font-bold mt-2">${latest.title}</h4>
+            </div>
+            
+            <div class="bg-gray-50 rounded-xl p-5 mb-6 text-left border border-gray-100">
+                <ul class="space-y-3">
+                    ${latest.features.map(f => `<li class="flex items-start gap-2 text-sm text-gray-700"><span class="mt-1">✨</span> <span>${f}</span></li>`).join('')}
+                </ul>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <button id="closeChangelogBtn" class="w-full py-3 rounded-xl font-bold text-white shadow-md" 
+                    style="background: ${config.primary_action_color};">
+                    太棒了！(Got it)
+                </button>
+                <button id="viewHistoryBtn" class="text-sm text-gray-400 hover:text-gray-600 underline">
+                    查看历史版本 (History)
+                </button>
+            </div>
+        `;
+    } else {
+        // --- 显示历史列表 ---
+        contentHtml = `
+            <div class="text-center mb-4 border-b pb-4">
+                <h3 class="text-xl font-bold" style="color: ${config.primary_action_color};">📜 版本历史</h3>
+            </div>
+            
+            <div class="overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar text-left space-y-6">
+                ${appChangelog.map((log, index) => `
+                    <div class="relative pl-4 border-l-2 ${index === 0 ? 'border-pink-500' : 'border-gray-200'}">
+                        <div class="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full ${index === 0 ? 'bg-pink-500' : 'bg-gray-300'}"></div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-gray-800">${log.version}</span>
+                            <span class="text-xs text-gray-400 font-mono">${log.date}</span>
+                        </div>
+                        <div class="text-xs font-bold text-gray-500 mb-2">${log.title}</div>
+                        <ul class="space-y-1">
+                            ${log.features.map(f => `<li class="text-xs text-gray-600 leading-relaxed">• ${f}</li>`).join('')}
+                        </ul>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="mt-6 pt-4 border-t">
+                <button id="closeChangelogBtn" class="w-full py-3 rounded-xl font-bold border-2 text-gray-500 hover:bg-gray-50">
+                    关闭
+                </button>
+            </div>
+        `;
+    }
+
+    modal.innerHTML = `
+        <div class="animate-fade-in-up bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 border-4" 
+             style="border-color: ${config.primary_action_color};">
+            ${contentHtml}
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // 绑定事件
+    document.getElementById('closeChangelogBtn').addEventListener('click', () => modal.remove());
+    
+    // 切换到历史记录
+    const historyBtn = document.getElementById('viewHistoryBtn');
+    if (historyBtn) {
+        historyBtn.addEventListener('click', () => {
+            modal.remove(); // 先关掉当前的
+            showChangelogModal(config, 'history'); // 再开个历史模式的
+        });
+    }
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+}
+
+// ==========================================
+// 👇 V1.2.0 新增：版本号点击处理 (消除红点)
+// ==========================================
+function handleVersionClick(config, version) {
+    // 1. 打开更新日志
+    showChangelogModal(config);
+    
+    // 2. 记录“已读”状态到本地存储
+    localStorage.setItem('gembrow_last_seen_version', version);
+    
+    // 3. 视觉上立刻隐藏红点 (无需刷新)
+    const badge = document.getElementById('versionBadge');
+    if (badge) badge.remove();
+}
+
 initApp();
 initGlobalWidgets();
 
-//Gem Brow beauty [v1.1.1]
+//Gem Brow beauty [v1.2.0]
