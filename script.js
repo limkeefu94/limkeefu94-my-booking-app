@@ -4350,32 +4350,28 @@ function importData(input) {
 }
 
 // ==========================================
-// 👇 新增：全局挂件 (Google翻译 + WhatsApp悬浮窗)
+// 👇 [v1.3.3] 全局挂件 (修复层级遮挡问题)
 // ==========================================
 function initGlobalWidgets() {
-    // 1. 注入 CSS (加了 ID 检查，防止重复注入)
+    // 1. 注入 CSS (样式保持不变)
     if (!document.getElementById('global-widget-styles')) {
         const style = document.createElement('style');
         style.id = 'global-widget-styles'; 
         style.innerHTML = `
-            /* 彻底隐藏 Google 顶部横条 */
             .goog-te-banner-frame.skiptranslate { display: none !important; height: 0 !important; visibility: hidden !important; } 
             iframe.goog-te-banner-frame { display: none !important; height: 0 !important; visibility: hidden !important; }
             body { top: 0px !important; position: static !important; min-height: 100vh !important; }
-            
             #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
             .VIpgJd-ZVi9od-ORHb-OEVmcd { display: none !important; }
-
             #google_translate_element img { display: none !important; }
             .goog-te-gadget-simple { background-color: transparent !important; border: none !important; padding: 0 !important; font-size: 13px !important; }
             .goog-te-menu-value span { color: #555 !important; font-weight: bold; border: none !important; }
             .goog-te-menu-value span:nth-child(2), .goog-te-menu-value span:nth-child(3) { display: none !important; }
-
-            /* 👇👇👇 新增：打印时隐藏所有悬浮挂件 👇👇👇 */
+            
+            /* 打印时隐藏 */
             @media print {
                 .floating-wa-btn { display: none !important; }
                 #google_translate_element { display: none !important; }
-                /* 隐藏可能存在的其他浮动元素 */
                 .toast { display: none !important; }
             }
         `;
@@ -4394,7 +4390,6 @@ function initGlobalWidgets() {
     const waBtn = document.createElement('a');
     waBtn.href = waUrl;
     waBtn.target = "_blank";
-    // 👇 加了 print:hidden 虽然上面的 CSS 已经处理了，但多加一个类名更保险
     waBtn.className = "floating-wa-btn print:hidden";
     
     waBtn.style.cssText = `
@@ -4409,7 +4404,8 @@ function initGlobalWidgets() {
         text-align: center;
         font-size: 35px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-        z-index: 9999;
+        /* 👇 修改：从 9999 降为 45，让位给弹窗 (z-50) */
+        z-index: 45; 
         display: flex;
         align-items: center;
         justify-content: center;
@@ -4428,13 +4424,13 @@ function initGlobalWidgets() {
 
     const translateDiv = document.createElement('div');
     translateDiv.id = "google_translate_element";
-    // 👇 同样加上 print:hidden
     translateDiv.className = "print:hidden";
     translateDiv.style.cssText = `
         position: fixed;
         bottom: 20px;
         left: 20px; 
-        z-index: 10000;
+        /* 👇 修改：从 10000 降为 45，让位给弹窗 */
+        z-index: 45; 
         background: rgba(255, 255, 255, 0.9);
         padding: 4px;
         border-radius: 8px;
