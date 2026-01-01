@@ -703,14 +703,14 @@ function renderLoginPage() {
 }
 
 // ==========================================
-// 👇 主程序
+// 👇 [v1.3.1 优化版] 主程序 (打印时隐藏头尾)
 // ==========================================
 function renderMainApp(app, config, services, bookings, posts, customers) {
     const currentYear = new Date().getFullYear();
     const settings = getDiscountSettings();
     app.innerHTML = `
         <div class="min-h-full">
-            <header style="background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; border-bottom: 3px solid ${config.primary_action_color};">
+            <header class="print:hidden" style="background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; border-bottom: 3px solid ${config.primary_action_color};">
                 <div class="max-w-7xl mx-auto px-6 py-2 flex justify-between items-center">
                     <img src="${settings.logo_header || settings.logo_url || './assets/header_logo.png'}" alt="${config.app_title}" class="header-logo-img rounded-full" style="height: 40px; width: 40px; object-fit: cover;">
                     <button id="menuBtn" class="px-4 py-2 rounded-lg" style="border: 2px solid ${config.primary_action_color}; background: ${config.primary_action_color}22; color: ${config.primary_action_color}; font-family: Lato, sans-serif;">
@@ -720,7 +720,7 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
             </header>
                     
             ${showMenu ? `
-                <div id="menuOverlay" class="modal-backdrop fixed inset-0 z-50 flex items-end justify-end p-4">
+                <div id="menuOverlay" class="modal-backdrop fixed inset-0 z-50 flex items-end justify-end p-4 print:hidden">
                     <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 24px; width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 2px solid ${config.primary_action_color};">
                         <h3 class="mb-4" style="font-size: ${config.font_size * 1.3}px; font-weight: 700; color: ${config.primary_action_color};">菜单</h3>
                         ${currentMode === 'owner' ? `
@@ -751,11 +751,11 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                 </div>
             ` : ''}
             
-            <main class="max-w-7xl mx-auto px-6 py-8">
+            <main class="max-w-7xl mx-auto px-6 py-8 print:p-0">
                 ${currentMode === 'owner' ? renderOwnerView(config, services, bookings, posts, customers) : renderCustomerView(config, services, bookings, posts)}
             </main>
 
-            <footer class="mt-auto py-12 text-center border-t border-gray-100" style="background: #fafafa; color: ${config.text_color};">
+            <footer class="mt-auto py-12 text-center border-t border-gray-100 print:hidden" style="background: #fafafa; color: ${config.text_color};">
                <div class="max-w-7xl mx-auto px-6">
                    <div class="flex justify-center gap-8 mb-8">
                        ${settings.fb_link ? `<a href="${settings.fb_link}" target="_blank" class="opacity-60 hover:opacity-100 hover:scale-110 transition-all"><img src="https://cdn-icons-png.flaticon.com/512/5968/5968764.png" width="24" alt="FB"></a>` : ''}
@@ -1161,7 +1161,7 @@ function renderOwnerView(config, services, bookings, posts, customers) {
 }
 
 // ==========================================
-// 👇 升级版：数据统计 (支持搜单号 + 实际时间)
+// 👇 [v1.3.1 优化版] 数据统计 (打印友好 + 优雅UI)
 // ==========================================
 function renderStats(config, services, bookings, customers, orders) {
     const safeOrders = orders || getDataByType('order');
@@ -1174,13 +1174,14 @@ function renderStats(config, services, bookings, customers, orders) {
         return d >= statsStartDate && d <= statsEndDate;
     };
 
-    // 1. 过滤日期 & 状态
+    // 1. 过滤预约 (已完成 & 日期内)
     let filteredBookings = safeBookings.filter(b => {
+        // 如果有 completedAt (实际完成时间) 就用它，否则用预约日期
         const effectiveDate = b.completedAt || b.appointmentDate;
         return b.status === 'completed' && isWithinDateRange(effectiveDate);
     });
 
-    // 2. 过滤搜索词
+    // 2. 搜索过滤
     if (statsSearchQuery) {
         const lowerQ = statsSearchQuery.toLowerCase();
         filteredBookings = filteredBookings.filter(b => 
@@ -1190,15 +1191,15 @@ function renderStats(config, services, bookings, customers, orders) {
         );
     }
 
+    // 3. 过滤订单
     const filteredOrders = safeOrders.filter(o => o.status === 'completed' && isWithinDateRange(o.createdAt));
     
-    // 计算收入
+    // 4. 计算金额
     const serviceRevenue = filteredBookings.reduce((sum, b) => sum + (parseFloat(b.totalAmount) || 0), 0);
     const productRevenue = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0), 0);
     const totalRevenue = serviceRevenue + productRevenue;
 
-    // 商品统计 (省略部分代码，保持原样即可，为了省篇幅)
-    // ... (如果你需要我也能完整贴出，但这部分没变) ...
+    // 5. 商品销量排行
     const productStats = {};
     filteredOrders.forEach(order => {
         order.items.forEach(item => {
@@ -1212,16 +1213,17 @@ function renderStats(config, services, bookings, customers, orders) {
         .sort((a, b) => b.revenue - a.revenue);
 
     return `
-        <div class="min-h-full">
-            <header class="bg-white shadow-sm sticky top-0 z-10 border-b-2" style="border-color: ${config.primary_action_color};">
+        <div class="min-h-full print:bg-white">
+            
+            <header class="bg-white shadow-sm sticky top-0 z-10 border-b-2 print:hidden" style="border-color: ${config.primary_action_color};">
                 <div class="max-w-7xl mx-auto px-4 py-4">
                     <div class="flex justify-between items-center mb-4">
                         <h1 class="text-xl font-bold" style="color: ${config.text_color};">📊 数据统计</h1>
                         <div class="flex gap-2">
-                            <button onclick="window.print()" class="px-4 py-2 rounded-lg text-white text-sm font-bold shadow-md" style="background-color: ${config.secondary_action_color};">
-                                🖨️ 导出报表
+                            <button onclick="window.print()" class="px-4 py-2 rounded-lg text-white text-sm font-bold shadow-md hover:opacity-90 transition-opacity" style="background-color: ${config.secondary_action_color};">
+                                🖨️ 打印报表
                             </button>
-                            <button onclick="currentView='manage'; renderApp()" class="px-4 py-2 rounded-lg border-2 text-sm font-bold" style="border-color: ${config.primary_action_color}; color: ${config.primary_action_color};">
+                            <button onclick="currentView='manage'; renderApp()" class="px-4 py-2 rounded-lg border-2 text-sm font-bold hover:bg-gray-50 transition-colors" style="border-color: ${config.primary_action_color}; color: ${config.primary_action_color};">
                                 返回
                             </button>
                         </div>
@@ -1250,32 +1252,59 @@ function renderStats(config, services, bookings, customers, orders) {
                 </div>
             </header>
 
-            <main class="max-w-7xl mx-auto px-4 py-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-xl shadow-md border-l-4" style="border-color: ${config.primary_action_color};">
-                        <p class="text-sm opacity-70 mb-1">总收入</p>
-                        <h3 class="text-3xl font-bold" style="color: ${config.primary_action_color};">RM${totalRevenue.toFixed(2)}</h3>
+            <div class="hidden print:block mb-8 text-center pt-4">
+                <h1 class="text-2xl font-bold text-black mb-1">${config.app_title} - 营收报表</h1>
+                <p class="text-sm text-gray-600 font-mono">${statsStartDate} 至 ${statsEndDate}</p>
+                <div class="border-b-2 border-black w-1/3 mx-auto mt-2"></div>
+            </div>
+
+            <main class="max-w-7xl mx-auto px-4 py-6 print:p-0">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 print:grid-cols-3 print:gap-4">
+                    
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between print:border print:border-gray-300 print:shadow-none">
+                        <div>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Total Revenue</p>
+                            <p class="text-sm font-bold text-gray-600">总收入</p>
+                        </div>
+                        <h3 class="text-2xl font-bold font-mono" style="color: ${config.primary_action_color};">
+                            RM${totalRevenue.toFixed(2)}
+                        </h3>
                     </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md border-l-4" style="border-color: ${config.secondary_action_color};">
-                        <p class="text-sm opacity-70 mb-1">商品销量</p>
-                        <h3 class="text-3xl font-bold" style="color: ${config.secondary_action_color};">${filteredOrders.length} 单</h3>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between print:border print:border-gray-300 print:shadow-none">
+                        <div>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Products Sold</p>
+                            <p class="text-sm font-bold text-gray-600">商品销量</p>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800">
+                            ${filteredOrders.length} <span class="text-sm text-gray-400 font-normal">单</span>
+                        </h3>
                     </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-gray-500">
-                        <p class="text-sm opacity-70 mb-1">服务单数</p>
-                        <h3 class="text-3xl font-bold text-gray-700">${filteredBookings.length} 单</h3>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between print:border print:border-gray-300 print:shadow-none">
+                        <div>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Services Done</p>
+                            <p class="text-sm font-bold text-gray-600">服务单数</p>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800">
+                            ${filteredBookings.length} <span class="text-sm text-gray-400 font-normal">单</span>
+                        </h3>
                     </div>
+
                 </div>
 
-                <div class="bg-white p-6 rounded-xl shadow-md mb-8">
-                    <h3 class="text-lg font-bold mb-4 border-b pb-2">💆‍♀️ 服务账单明细</h3>
+                <div class="bg-white p-6 rounded-xl shadow-md mb-8 print:shadow-none print:border print:border-gray-300 print:p-0">
+                    <h3 class="text-lg font-bold mb-4 border-b pb-2 print:text-base print:mb-2">💆‍♀️ 服务账单明细</h3>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                        <table class="w-full text-left border-collapse print:text-xs">
                             <thead>
-                                <tr class="text-sm text-gray-500 border-b bg-gray-50">
+                                <tr class="text-sm text-gray-500 border-b bg-gray-50 print:bg-gray-100">
                                     <th class="py-3 pl-2">日期 & 时间</th>
                                     <th class="py-3">单号</th>
                                     <th class="py-3">客户</th>
-                                    <th class="py-3">支付方式</th> <th class="py-3">项目</th>
+                                    <th class="py-3">支付方式</th> 
+                                    <th class="py-3">项目</th>
                                     <th class="py-3 text-right pr-2">金额</th>
                                 </tr>
                             </thead>
@@ -1287,23 +1316,22 @@ function renderStats(config, services, bookings, customers, orders) {
                                     const dateStr = dateObj.toLocaleDateString();
                                     const timeStr = isRealTime ? dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : (b.appointmentTime || '');
                                     
-                                    // 支付方式显示优化
                                     let payBadge = '-';
-                                    if(b.paymentMethod === 'TNG') payBadge = '<span class="px-2 py-1 rounded bg-blue-100 text-blue-600 text-xs font-bold">TNG</span>';
-                                    else if(b.paymentMethod === 'Cash') payBadge = '<span class="px-2 py-1 rounded bg-green-100 text-green-600 text-xs font-bold">Cash</span>';
-                                    else if(b.paymentMethod === 'DuitNow') payBadge = '<span class="px-2 py-1 rounded bg-pink-100 text-pink-600 text-xs font-bold">DuitNow</span>';
+                                    if(b.paymentMethod === 'TNG') payBadge = '<span class="px-2 py-1 rounded bg-blue-100 text-blue-600 text-xs font-bold print:border print:border-gray-300 print:bg-white print:text-black">TNG</span>';
+                                    else if(b.paymentMethod === 'Cash') payBadge = '<span class="px-2 py-1 rounded bg-green-100 text-green-600 text-xs font-bold print:border print:border-gray-300 print:bg-white print:text-black">Cash</span>';
                                     else if(b.paymentMethod) payBadge = b.paymentMethod;
 
                                     return `
-                                    <tr class="border-b last:border-0 hover:bg-gray-50 transition-colors">
-                                        <td class="py-3 pl-2 text-sm">
+                                    <tr class="border-b last:border-0 hover:bg-gray-50 transition-colors print:border-gray-200">
+                                        <td class="py-3 pl-2 text-sm print:py-2">
                                             <div class="font-bold text-gray-700">${dateStr}</div>
-                                            <div class="text-xs ${isRealTime ? 'text-green-600 font-bold' : 'text-gray-400'}">${timeStr} ${isRealTime ? '✅' : '(预约)'}</div>
+                                            <div class="text-xs ${isRealTime ? 'text-green-600 font-bold print:text-black' : 'text-gray-400'}">${timeStr}</div>
                                         </td>
-                                        <td class="py-3 text-sm font-mono font-bold text-gray-500">${b.receiptNumber || '-'}</td>
-                                        <td class="py-3 text-sm font-medium">${b.customerName}</td>
-                                        <td class="py-3 text-sm">${payBadge}</td> <td class="py-3 text-sm text-gray-600">${b.serviceName}</td>
-                                        <td class="py-3 text-sm font-bold text-right pr-2" style="color: ${config.primary_action_color};">RM${parseFloat(b.totalAmount).toFixed(2)}</td>
+                                        <td class="py-3 text-sm font-mono font-bold text-gray-500 print:text-black print:py-2">${b.receiptNumber || '-'}</td>
+                                        <td class="py-3 text-sm font-medium print:py-2">${b.customerName}</td>
+                                        <td class="py-3 text-sm print:py-2">${payBadge}</td> 
+                                        <td class="py-3 text-sm text-gray-600 print:py-2 max-w-[150px] truncate">${b.serviceName}</td>
+                                        <td class="py-3 text-sm font-bold text-right pr-2 print:py-2" style="color: ${config.primary_action_color};">RM${parseFloat(b.totalAmount).toFixed(2)}</td>
                                     </tr>
                                     `;
                                 }).join('')}
@@ -1312,9 +1340,29 @@ function renderStats(config, services, bookings, customers, orders) {
                     </div>
                 </div>
                 
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-lg font-bold mb-4 border-b pb-2">🛍️ 商品销售统计</h3>
-                    <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="text-sm text-gray-500 border-b"><th class="py-2">商品名称</th><th class="py-2 text-center">销量 (件)</th><th class="py-2 text-right">总销售额</th></tr></thead><tbody>${sortedProducts.length === 0 ? `<tr><td colspan="3" class="text-center py-4 text-gray-400">无记录</td></tr>` : sortedProducts.map(p => `<tr class="border-b last:border-0 hover:bg-gray-50"><td class="py-3 text-sm font-medium">${p.name}</td><td class="py-3 text-sm text-center bg-gray-50 rounded-lg font-bold text-gray-600">${p.quantity}</td><td class="py-3 text-sm font-bold text-right" style="color: ${config.secondary_action_color};">RM${p.revenue.toFixed(2)}</td></tr>`).join('')}</tbody></table></div>
+                <div class="bg-white p-6 rounded-xl shadow-md print:shadow-none print:border print:border-gray-300 print:p-0 print:break-inside-avoid">
+                    <h3 class="text-lg font-bold mb-4 border-b pb-2 print:text-base print:mb-2">🛍️ 商品销售统计</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse print:text-xs">
+                            <thead>
+                                <tr class="text-sm text-gray-500 border-b print:bg-gray-100">
+                                    <th class="py-2">商品名称</th>
+                                    <th class="py-2 text-center">销量 (件)</th>
+                                    <th class="py-2 text-right">总销售额</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sortedProducts.length === 0 ? `<tr><td colspan="3" class="text-center py-4 text-gray-400">无记录</td></tr>` : 
+                                sortedProducts.map(p => `
+                                    <tr class="border-b last:border-0 hover:bg-gray-50 print:border-gray-200">
+                                        <td class="py-3 text-sm font-medium print:py-2">${p.name}</td>
+                                        <td class="py-3 text-sm text-center bg-gray-50 rounded-lg font-bold text-gray-600 print:bg-white print:border print:border-gray-200 print:py-2">${p.quantity}</td>
+                                        <td class="py-3 text-sm font-bold text-right print:py-2" style="color: ${config.secondary_action_color};">RM${p.revenue.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
             </main>
@@ -1396,7 +1444,7 @@ function renderSettings(config) {
                 </h2>
                 
                 ${(() => {
-                    const currentVersion = 'v1.3.0';
+                    const currentVersion = 'v1.3.1';
                     // 检查是否已读
                     const lastSeen = localStorage.getItem('gembrow_last_seen_version');
                     const showBadge = lastSeen !== currentVersion;
@@ -4291,7 +4339,7 @@ function initGlobalWidgets() {
     // 1. 注入 CSS (加了 ID 检查，防止重复注入)
     if (!document.getElementById('global-widget-styles')) {
         const style = document.createElement('style');
-        style.id = 'global-widget-styles'; // 给它个身份证
+        style.id = 'global-widget-styles'; 
         style.innerHTML = `
             /* 彻底隐藏 Google 顶部横条 */
             .goog-te-banner-frame.skiptranslate { display: none !important; height: 0 !important; visibility: hidden !important; } 
@@ -4305,25 +4353,32 @@ function initGlobalWidgets() {
             .goog-te-gadget-simple { background-color: transparent !important; border: none !important; padding: 0 !important; font-size: 13px !important; }
             .goog-te-menu-value span { color: #555 !important; font-weight: bold; border: none !important; }
             .goog-te-menu-value span:nth-child(2), .goog-te-menu-value span:nth-child(3) { display: none !important; }
+
+            /* 👇👇👇 新增：打印时隐藏所有悬浮挂件 👇👇👇 */
+            @media print {
+                .floating-wa-btn { display: none !important; }
+                #google_translate_element { display: none !important; }
+                /* 隐藏可能存在的其他浮动元素 */
+                .toast { display: none !important; }
+            }
         `;
         document.head.appendChild(style);
     }
 
-    // 2. WhatsApp 按钮 (每次调用都会重新获取最新设置)
+    // 2. WhatsApp 按钮 
     const settings = getDiscountSettings(); 
-    // ⚠️ 确保这里读取的是最新的 wa_number
     const myPhone = settings.wa_number || "60123456789"; 
     const defaultText = "你好，我想咨询美睫服务 (Hi, I am interested in eyelash services)";
     const waUrl = `https://wa.me/${myPhone}?text=${encodeURIComponent(defaultText)}`;
     
-    // 🔥 关键：先删掉旧的，再加新的
     const oldBtn = document.querySelector('.floating-wa-btn');
     if (oldBtn) oldBtn.remove();
 
     const waBtn = document.createElement('a');
     waBtn.href = waUrl;
     waBtn.target = "_blank";
-    waBtn.className = "floating-wa-btn";
+    // 👇 加了 print:hidden 虽然上面的 CSS 已经处理了，但多加一个类名更保险
+    waBtn.className = "floating-wa-btn print:hidden";
     
     waBtn.style.cssText = `
         position: fixed;
@@ -4351,11 +4406,13 @@ function initGlobalWidgets() {
 
     document.body.appendChild(waBtn);
 
-    // 3. Google 翻译 (只加载一次)
+    // 3. Google 翻译 
     if (document.getElementById('google_translate_element')) return;
 
     const translateDiv = document.createElement('div');
     translateDiv.id = "google_translate_element";
+    // 👇 同样加上 print:hidden
+    translateDiv.className = "print:hidden";
     translateDiv.style.cssText = `
         position: fixed;
         bottom: 20px;
@@ -4384,6 +4441,7 @@ function initGlobalWidgets() {
     libScript.onerror = function() { translateDiv.style.display = 'none'; };
     document.body.appendChild(libScript);
 }
+
 // ==========================================
 // 👇 新增：图片自动压缩工具 (把大图压成小图)
 // ==========================================
@@ -4495,18 +4553,21 @@ function showBlockTimeModal(config) {
 }
 
 // ==========================================
-// 👇 V1.2.X 核心：智能收银台 (全渠道同步版)
+// 👇 [v1.3.1] 智能收银台 (双端适配版)
 // ==========================================
 function showCashierModal(config, booking) {
     const modal = document.createElement('div');
     modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
     
+    // ----------------------------------------------------------------
+    // 1. 数据准备 (保持原逻辑不变)
+    // ----------------------------------------------------------------
     const allProducts = getDataByType('product') || [];
     const allServices = getDataByType('service') || [];
     const customers = getDataByType('customer_account') || [];
-    const allOrders = getDataByType('order') || []; // 👈 获取所有订单
+    const allOrders = getDataByType('order') || [];
 
-    // 1. 查找服务价格
+    // 查找服务价格
     let initialServicePrice = 0;
     const matchedService = allServices.find(s => s.name === booking.serviceName);
     if (matchedService) initialServicePrice = parseFloat(matchedService.price);
@@ -4515,65 +4576,54 @@ function showCashierModal(config, booking) {
         { type: 'service', id: booking.serviceId || 'srv_booking', name: booking.serviceName, price: initialServicePrice, quantity: 1 }
     ];
 
-    // 用于记录哪些 Pending 订单被合并了，结账后要更新它们的状态
     let mergedOrderIds = [];
 
-    // 2. 🔥 同步逻辑 A：检查“购物车” (未提交的)
+    // 同步购物车
     const currentCustomer = customers.find(c => c.username === booking.customerName);
     if (currentCustomer && currentCustomer.cart && currentCustomer.cart.length > 0) {
         currentCustomer.cart.forEach(cartItem => {
-            cartItems.push({
-                type: 'product',
-                id: cartItem.id,
-                name: cartItem.name,
-                price: parseFloat(cartItem.price),
-                quantity: cartItem.quantity,
-                fromSource: 'cart' // 标记来源
-            });
+            cartItems.push({ ...cartItem, fromSource: 'cart', type: 'product' });
         });
         showToast(`🛒 已同步购物车内的商品`);
     }
 
-    // 3. 🔥 同步逻辑 B：检查“待处理订单” (已提交但未付/未发的)
-    // 只有当订单状态是 'pending' 且属于当前客户时，才合并进来
+    // 同步订单
     const pendingOrders = allOrders.filter(o => o.customerName === booking.customerName && o.status === 'pending');
     if (pendingOrders.length > 0) {
         pendingOrders.forEach(order => {
-            mergedOrderIds.push(order.id); // 记下来，等下收钱了要标记为完成
+            mergedOrderIds.push(order.id);
             order.items.forEach(item => {
-                cartItems.push({
-                    type: 'product',
-                    id: item.id,
-                    name: item.name,
-                    price: parseFloat(item.price),
-                    quantity: item.quantity,
-                    fromSource: 'order' // 标记来源
-                });
+                cartItems.push({ ...item, fromSource: 'order', type: 'product' });
             });
         });
         showToast(`📑 已合并 ${pendingOrders.length} 张待处理订单`);
     }
 
+    // ----------------------------------------------------------------
+    // 2. 渲染购物车列表函数 (保持原逻辑)
+    // ----------------------------------------------------------------
     const renderCart = () => {
         const listEl = document.getElementById('posCartList');
         const totalEl = document.getElementById('posTotalAmount');
+        const badgeEl = document.getElementById('mobile-cart-badge'); // 小红点
         const adjustment = parseFloat(document.getElementById('posAdjustment')?.value || 0);
         
         if (!listEl || !totalEl) return;
 
         let subtotal = 0;
+        let productCount = 0; // 计算商品数量(不含服务)
         
         listEl.innerHTML = cartItems.map((item, index) => {
             const itemTotal = item.price * item.quantity;
             subtotal += itemTotal;
+            if (item.type !== 'service') productCount += item.quantity;
             
-            // 显示不同的来源标签
             let sourceBadge = '';
-            if (item.fromSource === 'cart') sourceBadge = `<span class="text-[10px] bg-blue-100 text-blue-600 px-1 rounded ml-2">🛒 购物车</span>`;
-            else if (item.fromSource === 'order') sourceBadge = `<span class="text-[10px] bg-purple-100 text-purple-600 px-1 rounded ml-2">📑 订单</span>`;
+            if (item.fromSource === 'cart') sourceBadge = `<span class="text-[10px] bg-blue-100 text-blue-600 px-1 rounded ml-2">🛒</span>`;
+            else if (item.fromSource === 'order') sourceBadge = `<span class="text-[10px] bg-purple-100 text-purple-600 px-1 rounded ml-2">📑</span>`;
 
             return `
-                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2 animate-fade-in-up">
+                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2">
                     <div class="flex-1">
                         <div class="font-bold text-gray-700 text-sm flex items-center flex-wrap">
                             ${item.type === 'service' ? '💆‍♀️' : '🛍️'} ${item.name} ${sourceBadge}
@@ -4584,12 +4634,12 @@ function showCashierModal(config, booking) {
                         ${item.type === 'product' ? `
                             <div class="flex items-center bg-white border rounded-lg h-8">
                                 <button onclick="window.updatePosQty(${index}, -1)" class="px-2 text-gray-500 hover:text-red-500 font-bold">-</button>
-                                <span class="px-2 text-sm font-bold w-8 text-center">${item.quantity}</span>
+                                <span class="px-2 text-sm font-bold w-6 text-center">${item.quantity}</span>
                                 <button onclick="window.updatePosQty(${index}, 1)" class="px-2 text-gray-500 hover:text-green-500 font-bold">+</button>
                             </div>
                         ` : `<span class="text-sm font-bold text-gray-500">x1</span>`}
                         
-                        <span class="font-bold text-gray-700 w-20 text-right">RM${itemTotal.toFixed(2)}</span>
+                        <span class="font-bold text-gray-700 w-16 text-right">RM${itemTotal.toFixed(2)}</span>
                         ${item.type !== 'service' ? `<button onclick="window.removePosItem(${index})" class="text-gray-400 hover:text-red-500 px-1">✕</button>` : '<span class="w-4"></span>'} 
                     </div>
                 </div>
@@ -4599,12 +4649,17 @@ function showCashierModal(config, booking) {
         const finalTotal = subtotal + adjustment;
         totalEl.innerText = `RM${finalTotal.toFixed(2)}`;
         
+        // 更新小红点
+        if(badgeEl) {
+             badgeEl.style.display = productCount > 0 ? 'block' : 'none';
+             badgeEl.innerText = productCount;
+        }
+
         const btn = document.getElementById('confirmPaymentBtn');
         btn.dataset.total = finalTotal;
         if (btn.dataset.method) btn.innerText = `确认收款 RM${finalTotal.toFixed(2)}`;
     };
 
-    // 全局助手函数
     window.removePosItem = (index) => { cartItems.splice(index, 1); renderCart(); };
     window.updatePosQty = (index, change) => {
         const item = cartItems[index];
@@ -4612,7 +4667,6 @@ function showCashierModal(config, booking) {
         const newQty = item.quantity + change;
         if (newQty < 1) return; 
         
-        // 实时库存检查
         const productData = allProducts.find(p => p.id === item.id);
         const maxStock = productData ? parseInt(productData.stock || 9999) : 9999;
         if (newQty > maxStock) return showToast(`库存不足！当前仅剩 ${maxStock}`);
@@ -4621,55 +4675,145 @@ function showCashierModal(config, booking) {
         renderCart();
     };
 
+    // ----------------------------------------------------------------
+    // 3. 🔥 [核心修改] 新的 HTML 结构 (支持双页切换)
+    // ----------------------------------------------------------------
     modal.innerHTML = `
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row h-[85vh]">
-            <div class="w-full md:w-5/12 bg-gray-50 p-6 flex flex-col border-r border-gray-200 overflow-y-auto">
-                <div class="mb-6">
-                    <h3 class="text-xl font-bold text-gray-800 mb-1">💰 收银台</h3>
-                    <p class="text-sm text-gray-500">单号: <span class="font-mono font-bold">${booking.receiptNumber || '结算时生成'}</span></p>
-                </div>
-                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-6">
-                    <h4 class="font-bold text-gray-700 mb-4 text-sm flex items-center gap-2">🛍️ 添加商品</h4>
-                    <div class="space-y-4">
-                        <select id="productSelect" class="w-full px-4 py-3 rounded-lg border bg-gray-50 text-sm font-bold focus:outline-none focus:border-pink-500">
-                            <option value="">👇 点击选择商品...</option>
-                            ${allProducts.map(p => `<option value="${p.id}" data-price="${p.price}" data-name="${p.name}" data-stock="${p.stock}">${p.name} (RM${p.price}) - 库存: ${p.stock !== undefined ? p.stock : '未设置'}</option>`).join('')}
-                        </select>
-                        <div class="flex items-center gap-3">
-                            <button type="button" onclick="document.getElementById('productQty').stepDown()" class="w-10 h-10 rounded-lg bg-gray-200 hover:bg-gray-300 font-bold text-lg">-</button>
-                            <input type="number" id="productQty" value="1" min="1" class="flex-1 h-10 text-center border-2 rounded-lg font-bold" readonly>
-                            <button type="button" onclick="document.getElementById('productQty').stepUp()" class="w-10 h-10 rounded-lg bg-gray-200 hover:bg-gray-300 font-bold text-lg">+</button>
-                        </div>
-                        <button id="addPosItemBtn" class="w-full py-3 bg-gray-800 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-black transition-all transform active:scale-95">+ 加入清单</button>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-xl shadow-sm border border-pink-100 mt-auto">
-                    <h4 class="font-bold text-pink-600 mb-3 text-sm">⚖️ 补差价 / 折扣</h4>
-                    <div class="flex gap-2 items-center"><span class="text-gray-400 font-bold">RM</span><input type="number" id="posAdjustment" value="0" step="1" class="flex-1 px-3 py-2 rounded-lg border border-pink-200 text-pink-600 font-bold text-lg focus:outline-none"></div>
-                    <p class="text-[10px] text-gray-400 mt-2">提示: 输入负数 (例如 -10) 代表折扣</p>
-                </div>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[90vh] md:h-[85vh]">
+            
+            <div class="md:hidden flex bg-white border-b border-gray-200 shrink-0">
+                <button id="tab-btn-menu" onclick="window.switchPosTab('menu')" class="flex-1 py-4 text-sm font-bold text-center border-b-2 border-pink-500 text-pink-600 bg-pink-50 transition-colors">
+                    🛍️ 选购商品
+                </button>
+                <button id="tab-btn-cart" onclick="window.switchPosTab('cart')" class="flex-1 py-4 text-sm font-bold text-center text-gray-500 relative transition-colors">
+                    🧾 结算清单
+                    <span id="mobile-cart-badge" class="hidden absolute top-3 right-8 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">0</span>
+                </button>
+                <button id="closePosBtnMobile" class="px-4 text-gray-400 border-l border-gray-100">✕</button>
             </div>
-            <div class="w-full md:w-7/12 bg-white p-6 flex flex-col h-full relative">
-                <button id="closePosBtn" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
-                <div class="mb-4"><h4 class="font-bold text-gray-800 text-lg">当前客户</h4><p class="text-gray-500">${booking.customerName} <span class="text-xs bg-gray-100 px-2 py-0.5 rounded-full ml-2">${booking.customerPhone}</span></p></div>
-                <div class="flex-1 overflow-y-auto mb-4 pr-2 custom-scrollbar bg-gray-50 rounded-xl p-4 border border-dashed border-gray-300"><div id="posCartList" class="space-y-2"></div></div>
-                <div class="border-t pt-4">
-                    <div class="flex justify-between items-end mb-6"><div><p class="text-xs text-gray-400 font-bold uppercase tracking-wider">Total Amount</p><p class="text-sm text-gray-500">应收总额</p></div><span id="posTotalAmount" class="text-4xl font-bold" style="color: ${config.primary_action_color};">RM0.00</span></div>
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <button class="payMethodBtn flex items-center justify-center gap-2 py-4 border-2 rounded-xl font-bold text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-all group" data-method="TNG"><span class="grayscale group-hover:grayscale-0 text-xl transition-all">🔵</span> TNG</button>
-                        <button class="payMethodBtn flex items-center justify-center gap-2 py-4 border-2 rounded-xl font-bold text-gray-400 hover:border-green-500 hover:text-green-500 transition-all group" data-method="Cash"><span class="grayscale group-hover:grayscale-0 text-xl transition-all">💵</span> Cash</button>
+
+            <div class="flex flex-1 overflow-hidden relative">
+                
+                <div id="pos-panel-menu" class="w-full md:w-5/12 bg-gray-50 p-4 md:p-6 flex flex-col border-r border-gray-200 overflow-y-auto h-full absolute md:relative z-10 md:z-auto inset-0 md:inset-auto bg-gray-50">
+                    
+                    <div class="hidden md:block mb-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-1">💰 收银台</h3>
+                        <p class="text-sm text-gray-500">单号: <span class="font-mono font-bold">${booking.receiptNumber || '结算时生成'}</span></p>
                     </div>
-                    <button id="confirmPaymentBtn" disabled class="w-full py-4 rounded-xl text-white font-bold text-lg shadow-xl opacity-40 cursor-not-allowed transition-all" style="background: ${config.primary_action_color};">请选择支付方式</button>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-4">
+                        <h4 class="font-bold text-gray-700 mb-4 text-sm flex items-center gap-2">🛍️ 添加商品</h4>
+                        <div class="space-y-4">
+                            <select id="productSelect" class="w-full px-4 py-3 rounded-lg border bg-gray-50 text-sm font-bold focus:outline-none focus:border-pink-500">
+                                <option value="">👇 点击选择商品...</option>
+                                ${allProducts.map(p => `<option value="${p.id}" data-price="${p.price}" data-name="${p.name}" data-stock="${p.stock}">${p.name} (RM${p.price}) - 库存: ${p.stock !== undefined ? p.stock : '未设置'}</option>`).join('')}
+                            </select>
+                            
+                            <div class="flex items-center gap-3">
+                                <button type="button" onclick="document.getElementById('productQty').stepDown()" class="w-12 h-12 rounded-lg bg-gray-200 hover:bg-gray-300 font-bold text-xl">-</button>
+                                <input type="number" id="productQty" value="1" min="1" class="flex-1 h-12 text-center border-2 rounded-lg font-bold text-lg" readonly>
+                                <button type="button" onclick="document.getElementById('productQty').stepUp()" class="w-12 h-12 rounded-lg bg-gray-200 hover:bg-gray-300 font-bold text-xl">+</button>
+                            </div>
+                            
+                            <button id="addPosItemBtn" class="w-full py-4 bg-gray-800 text-white rounded-xl text-base font-bold shadow-lg hover:bg-black transition-all transform active:scale-95">
+                                + 加入清单
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-pink-100 mt-auto mb-20 md:mb-0">
+                        <h4 class="font-bold text-pink-600 mb-3 text-sm">⚖️ 补差价 / 折扣</h4>
+                        <div class="flex gap-2 items-center">
+                            <span class="text-gray-400 font-bold">RM</span>
+                            <input type="number" id="posAdjustment" value="0" step="1" class="flex-1 px-3 py-2 rounded-lg border border-pink-200 text-pink-600 font-bold text-lg focus:outline-none">
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-2">提示: 输入负数 (例如 -10) 代表折扣</p>
+                    </div>
                 </div>
+
+                <div id="pos-panel-cart" class="w-full md:w-7/12 bg-white p-4 md:p-6 flex flex-col h-full border-l border-gray-100 hidden md:flex absolute md:relative inset-0 md:inset-auto z-20 md:z-auto">
+                    
+                    <button id="closePosBtnDesktop" class="hidden md:block absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
+                    
+                    <div class="mb-4 bg-blue-50 p-4 rounded-xl border border-blue-100 flex justify-between items-center">
+                        <div>
+                            <h4 class="font-bold text-blue-900 text-sm">当前客户</h4>
+                            <p class="text-blue-700 font-bold text-lg">${booking.customerName}</p>
+                        </div>
+                        <div class="text-right">
+                             <span class="text-xs bg-white text-blue-600 px-3 py-1 rounded-full font-bold shadow-sm border border-blue-100">${booking.customerPhone}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto mb-4 pr-1 custom-scrollbar">
+                        <div id="posCartList" class="space-y-2 pb-4"></div>
+                    </div>
+
+                    <div class="border-t pt-4 bg-white mt-auto">
+                        <div class="flex justify-between items-end mb-4">
+                            <div>
+                                <p class="text-xs text-gray-400 font-bold uppercase tracking-wider">Total Amount</p>
+                                <p class="text-sm text-gray-500">应收总额</p>
+                            </div>
+                            <span id="posTotalAmount" class="text-4xl font-bold" style="color: ${config.primary_action_color};">RM0.00</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <button class="payMethodBtn flex items-center justify-center gap-2 py-3 border-2 rounded-xl font-bold text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-all group" data-method="TNG">
+                                <span class="grayscale group-hover:grayscale-0 text-xl transition-all">🔵</span> TNG
+                            </button>
+                            <button class="payMethodBtn flex items-center justify-center gap-2 py-3 border-2 rounded-xl font-bold text-gray-400 hover:border-green-500 hover:text-green-500 transition-all group" data-method="Cash">
+                                <span class="grayscale group-hover:grayscale-0 text-xl transition-all">💵</span> Cash
+                            </button>
+                        </div>
+                        
+                        <button id="confirmPaymentBtn" disabled class="w-full py-4 rounded-xl text-white font-bold text-lg shadow-xl opacity-40 cursor-not-allowed transition-all" style="background: ${config.primary_action_color};">
+                            请选择支付方式
+                        </button>
+                    </div>
+                </div>
+
             </div>
         </div>
     `;
 
     document.body.appendChild(modal);
-    renderCart();
+    renderCart(); // 初始化渲染一次
 
-    const closeModal = () => { modal.remove(); delete window.removePosItem; delete window.updatePosQty; };
-    document.getElementById('closePosBtn').addEventListener('click', closeModal);
+    // ----------------------------------------------------------------
+    // 4. 全局切换函数 (window级别，方便HTML调用)
+    // ----------------------------------------------------------------
+    window.switchPosTab = (tabName) => {
+        const menuPanel = document.getElementById('pos-panel-menu');
+        const cartPanel = document.getElementById('pos-panel-cart');
+        const btnMenu = document.getElementById('tab-btn-menu');
+        const btnCart = document.getElementById('tab-btn-cart');
+
+        // 只在手机端生效 (通过 class hidden 控制)
+        if (tabName === 'menu') {
+            menuPanel.classList.remove('hidden');
+            cartPanel.classList.add('hidden');
+            // 按钮样式
+            btnMenu.className = "flex-1 py-4 text-sm font-bold text-center border-b-2 border-pink-500 text-pink-600 bg-pink-50 transition-colors";
+            btnCart.className = "flex-1 py-4 text-sm font-bold text-center text-gray-500 relative transition-colors border-b border-gray-200";
+        } else {
+            menuPanel.classList.add('hidden');
+            cartPanel.classList.remove('hidden');
+            // 按钮样式
+            btnMenu.className = "flex-1 py-4 text-sm font-bold text-center text-gray-500 relative transition-colors border-b border-gray-200";
+            btnCart.className = "flex-1 py-4 text-sm font-bold text-center border-b-2 border-pink-500 text-pink-600 bg-pink-50 transition-colors";
+            
+            // 重要：如果在电脑端，必须保证两个都显示
+            // (Tailwind 的 md:flex 会覆盖 hidden，所以其实只要 HTML 写对了 md:flex 这里的 JS 不会影响电脑端)
+        }
+    };
+
+    // ----------------------------------------------------------------
+    // 5. 事件绑定 (保持原逻辑)
+    // ----------------------------------------------------------------
+    const closeModal = () => { modal.remove(); delete window.removePosItem; delete window.updatePosQty; delete window.switchPosTab; };
+    document.getElementById('closePosBtnDesktop')?.addEventListener('click', closeModal);
+    document.getElementById('closePosBtnMobile')?.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
     document.getElementById('addPosItemBtn').addEventListener('click', () => {
@@ -4694,17 +4838,29 @@ function showCashierModal(config, booking) {
             cartItems.push({ type: 'product', id: option.value, name, price, quantity: qty });
         }
         renderCart();
-        select.value = ""; qtyInput.value = 1; showToast('✅ 已添加到清单');
+        
+        // 手机端优化：加购成功后，提示去结算，或者自动跳转？
+        // 暂时只给 Toast 提示，不强制跳转，方便连续加购
+        showToast('✅ 已加入清单');
+        
+        // 视觉反馈：小红点跳动
+        const badge = document.getElementById('mobile-cart-badge');
+        if(badge) {
+            badge.classList.add('animate-bounce');
+            setTimeout(()=>badge.classList.remove('animate-bounce'), 1000);
+        }
+
+        select.value = ""; qtyInput.value = 1; 
     });
 
     document.getElementById('posAdjustment').addEventListener('input', renderCart);
 
+    // 支付按钮逻辑 (保持不变)
     let selectedMethod = '';
     const confirmBtn = document.getElementById('confirmPaymentBtn');
     
     document.querySelectorAll('.payMethodBtn').forEach(btn => {
         btn.addEventListener('click', () => {
-            // 1. 样式重置
             document.querySelectorAll('.payMethodBtn').forEach(b => {
                 b.classList.remove('border-blue-500', 'text-blue-500', 'bg-blue-50', 'border-green-500', 'text-green-500', 'bg-green-50');
                 b.classList.add('text-gray-400', 'border-gray-200');
@@ -4713,42 +4869,30 @@ function showCashierModal(config, booking) {
             const method = btn.dataset.method;
             selectedMethod = method;
             
-            // 2. 激活样式
             btn.classList.remove('text-gray-400', 'border-gray-200');
             if (method === 'TNG') {
                 btn.classList.add('border-blue-500', 'text-blue-500', 'bg-blue-50');
-                
-                // 👇👇👇 新增：点击 TNG 时自动弹出二维码 👇👇👇
                 const settings = getDataByType('discount_settings')[0] || {};
-                const qrUrl = settings.tng_qr_url || config.tng_qr_url; // 双重保险
-                
-                if (qrUrl) {
-                    showQrPopup(qrUrl);
-                } else {
-                    showToast('⚠️ 未设置收款二维码，请去系统设置上传');
-                }
-                // 👆👆👆 新增结束 👆👆👆
-                
+                const qrUrl = settings.tng_qr_url || config.tng_qr_url;
+                if (qrUrl) showQrPopup(qrUrl);
+                else showToast('⚠️ 未设置收款二维码');
             } else {
                 btn.classList.add('border-green-500', 'text-green-500', 'bg-green-50');
             }
 
-            // 3. 激活确认按钮
             confirmBtn.disabled = false;
             confirmBtn.style.opacity = '1';
             confirmBtn.style.cursor = 'pointer';
             confirmBtn.dataset.method = method;
-            renderCart(); // 刷新按钮文字
+            renderCart();
         });
     });
 
-    // 🔥 确认收款 (含强库存检查 + 完结旧订单)
     confirmBtn.addEventListener('click', async () => {
         if (!selectedMethod) return;
         confirmBtn.innerText = "⏳ 检查库存...";
         confirmBtn.disabled = true;
 
-        // 1. 强力库存检查
         const productsToUpdate = cartItems.filter(i => i.type === 'product');
         for (const item of productsToUpdate) {
             const productData = allProducts.find(p => p.id === item.id);
@@ -4767,7 +4911,6 @@ function showCashierModal(config, booking) {
         const now = new Date().toISOString();
         const receiptNo = booking.receiptNumber || generateReceiptNumber();
 
-        // 2. 扣库存
         for (const item of productsToUpdate) {
             const productData = allProducts.find(p => p.id === item.id);
             if (productData) {
@@ -4776,7 +4919,6 @@ function showCashierModal(config, booking) {
             }
         }
 
-        // 3. 更新预约单
         await updateRecord(booking, {
             status: 'completed',
             paymentMethod: selectedMethod,
@@ -4787,7 +4929,6 @@ function showCashierModal(config, booking) {
             adjustment: document.getElementById('posAdjustment').value
         });
 
-        // 4. 创建总订单记录
         await createRecord({
             type: 'order',
             bookingId: booking.id,
@@ -4799,17 +4940,13 @@ function showCashierModal(config, booking) {
             status: 'completed'
         });
 
-        // 5. 🔥 清理工作：
-        // A. 清空购物车
         if (currentCustomer && currentCustomer.cart && currentCustomer.cart.length > 0) {
             await updateRecord(currentCustomer, { cart: [] });
         }
         
-        // B. 标记被合并的 Pending 订单为“已完成” (防止重复处理)
         if (mergedOrderIds.length > 0) {
             for (const orderId of mergedOrderIds) {
                 const originalOrder = allOrders.find(o => o.id === orderId);
-                // 更新状态，并把这张旧单子关联到新的收据号上
                 if (originalOrder) await updateRecord(originalOrder, { 
                     status: 'completed', 
                     mergedToReceipt: receiptNo,
@@ -4821,7 +4958,9 @@ function showCashierModal(config, booking) {
         showToast(`✅ 收款成功！单号: ${receiptNo}`);
         closeModal();
         renderApp();
-        showReceiptModal(config, { ...booking, receiptNumber: receiptNo, totalAmount: finalTotal, items: cartItems, paymentMethod: selectedMethod, completedAt: now });
+        if (typeof showReceiptModal === 'function') {
+             showReceiptModal(config, { ...booking, receiptNumber: receiptNo, totalAmount: finalTotal, items: cartItems, paymentMethod: selectedMethod, completedAt: now });
+        }
     });
 }
 
@@ -5538,4 +5677,4 @@ function handleVersionClick(config, version) {
 initApp();
 initGlobalWidgets();
 
-//Gem Brow beauty [v1.3.0]
+//Gem Brow beauty [v1.3.1]
