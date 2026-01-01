@@ -1657,6 +1657,37 @@ function renderSettings(config) {
                     </div>
                 </div>
 
+                <div class="mb-6 p-6 rounded-2xl bg-gray-50 border-2 border-gray-200">
+                    <h3 class="mb-4 font-bold text-lg text-gray-800 border-b pb-2 flex items-center gap-2">
+                        📜 店铺条款与声明 (Policies)
+                        <span class="text-xs font-normal text-gray-500 bg-gray-200 px-2 py-1 rounded">支持自定义</span>
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block mb-2 text-xs font-bold text-gray-600 uppercase">服务条款 (Terms & Conditions)</label>
+                            <textarea id="customTerms" rows="4" placeholder="默认使用系统标准条款。如需修改，请在此输入..." 
+                                class="w-full px-4 py-3 rounded-lg border focus:border-gray-500 text-sm"
+                                style="font-family: monospace;">${discountSettings.custom_terms || ''}</textarea>
+                            <p class="text-[10px] text-gray-400 mt-1">留空则显示系统默认的“免责声明、迟到规则”等。</p>
+                        </div>
+
+                        <div>
+                            <label class="block mb-2 text-xs font-bold text-gray-600 uppercase">隐私政策 (Privacy Policy)</label>
+                            <textarea id="customPrivacy" rows="3" placeholder="默认使用系统标准隐私政策..." 
+                                class="w-full px-4 py-3 rounded-lg border focus:border-gray-500 text-sm"
+                                style="font-family: monospace;">${discountSettings.custom_privacy || ''}</textarea>
+                        </div>
+
+                        <div>
+                            <label class="block mb-2 text-xs font-bold text-gray-600 uppercase">售后与退款 (Return & Refund)</label>
+                            <textarea id="customReturn" rows="3" placeholder="默认使用系统标准退换货政策..." 
+                                class="w-full px-4 py-3 rounded-lg border focus:border-gray-500 text-sm"
+                                style="font-family: monospace;">${discountSettings.custom_return || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur shadow-[0_-4px_20px_rgba(0,0,0,0.1)] p-4 flex gap-4 items-center justify-center z-40 border-t border-gray-100">
                     
                     <button type="submit" class="w-full max-w-md py-4 rounded-xl font-bold text-white shadow-lg text-lg transform active:scale-95 transition-transform flex items-center justify-center gap-2" 
@@ -1664,7 +1695,7 @@ function renderSettings(config) {
                         <span>💾 保存所有设置</span>
                     </button>
                 </div>
-                </form>     
+         </form>     
      </div>
     `;
 }
@@ -2371,6 +2402,9 @@ function attachEventListeners(config, services, bookings, posts) {
             // 2. 保存普通设置
             const currentSettings = getDataByType('discount_settings')[0] || {};
             const newSettings = {
+                custom_terms: document.getElementById('customTerms').value,
+                custom_privacy: document.getElementById('customPrivacy').value,
+                custom_return: document.getElementById('customReturn').value,
                 type: 'discount_settings',
                 shop_name: document.getElementById('shopName').value.trim(),
                 ssm_number: document.getElementById('ssmNumber').value.trim(),
@@ -3467,81 +3501,59 @@ function showCompleteBookingModal(config, booking) {
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
-// === 条款弹窗 (Terms / Privacy / Cookies) ===
+// ==========================================
+// 👇 [v1.3.2] 条款弹窗 (支持自定义内容)
+// ==========================================
 function showPolicyModal(config, type) {
-    const policies = {
-        // 1. 服务条款 (涵盖：健康、审美、免责)
-        terms: {
-            title: "Terms & Conditions (服务与免责条款)",
-            content: `
-                <div class="space-y-4 text-left text-sm">
-                    <div class="p-3 bg-red-50 rounded-lg border border-red-100">
-                        <h4 class="font-bold text-red-600 mb-1">⚠️ 重要免责声明 (Disclaimer)</h4>
-                        <ul class="list-disc pl-4 space-y-1 text-gray-700">
-                            <li><strong>过敏反应：</strong>美睫胶水/纹绣色料可能引起极少数人的过敏反应（红肿/发痒）。若您是敏感体质，请务必提前告知并要求做敏感测试。若未测试而直接操作，后续出现的过敏反应本店概不负责医疗赔偿。</li>
-                            <li><strong>健康告知：</strong>若您患有眼疾、刚做过眼部手术、正处于孕期或生理期，请务必提前告知。隐瞒健康状况导致的不良后果由客人自行承担。</li>
-                        </ul>
-                    </div>
+    // 1. 获取老板设置
+    const settings = getDiscountSettings();
 
-                    <div>
-                        <h4 class="font-bold text-gray-800 mb-1">1. 审美与效果 (Results)</h4>
-                        <p class="text-gray-600">美睫/纹绣属于纯手工艺术，受个人眼型、毛发基础影响，<strong>无法做到 100% 绝对对称</strong>（人脸本身存在不对称）。图片仅供参考，实际效果因人而异。</p>
-                    </div>
-
-                    <div>
-                        <h4 class="font-bold text-gray-800 mb-1">2. 迟到与取消 (Late & Cancellation)</h4>
-                        <p class="text-gray-600">请准时到达。迟到超过 <strong>15 分钟</strong>，我们将有权取消您的预约或缩短服务时间，且<strong>定金不予退还</strong>。</p>
-                    </div>
-
-                    <div>
-                        <h4 class="font-bold text-gray-800 mb-1">3. 个人财物 (Belongings)</h4>
-                        <p class="text-gray-600">请妥善保管您的贵重物品。本店不对任何遗失或损坏承担责任。</p>
-                    </div>
-                </div>
-            `
-        },
-        
-        // 2. 隐私政策 (标准版)
-        privacy: {
-            title: "Privacy Policy (隐私政策)",
-            content: `
-                <div class="space-y-4 text-left text-sm text-gray-600">
-                    <p>Gem Brow Beauty 非常重视您的隐私安全。</p>
-                    <ul class="list-disc pl-4 space-y-2">
-                        <li><strong>资料收集：</strong>我们收集您的姓名、电话仅用于预约联系和会员档案管理。</li>
-                        <li><strong>照片使用：</strong>在服务前后，我们可能会拍摄局部照片（眼部/眉部）用于店铺作品展示。如您介意，请提前告知，我们会对您的面部进行打码处理或不公开。</li>
-                        <li><strong>绝不外泄：</strong>您的资料绝不会出售给任何第三方营销机构。</li>
+    // 2. 定义默认文案 (Default Content)
+    const defaultTexts = {
+        terms: `
+            <div class="space-y-4 text-left text-sm">
+                <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+                    <h4 class="font-bold text-red-600 mb-1">⚠️ 重要免责声明 (Disclaimer)</h4>
+                    <ul class="list-disc pl-4 space-y-1 text-gray-700">
+                        <li><strong>过敏反应：</strong>美睫胶水/纹绣色料可能引起极少数人的过敏反应。敏感体质请务必提前告知并要求测试。</li>
+                        <li><strong>健康告知：</strong>若患有眼疾、刚做手术、孕期或生理期，请提前告知。隐瞒健康状况导致的后果由客人承担。</li>
                     </ul>
                 </div>
-            `
+                <div><h4 class="font-bold text-gray-800 mb-1">1. 迟到与取消</h4><p class="text-gray-600">迟到超过 15 分钟我们将有权取消预约，定金不予退还。</p></div>
+                <div><h4 class="font-bold text-gray-800 mb-1">2. 审美差异</h4><p class="text-gray-600">手工艺术无法做到 100% 绝对对称，图片仅供参考。</p></div>
+            </div>`,
+        privacy: `
+            <div class="space-y-4 text-left text-sm text-gray-600">
+                <p>我们非常重视您的隐私安全。</p>
+                <ul class="list-disc pl-4 space-y-2">
+                    <li><strong>资料用途：</strong>仅用于预约联系和会员档案。</li>
+                    <li><strong>照片使用：</strong>服务前后拍摄的照片仅用于作品展示，如介意请告知。</li>
+                    <li><strong>绝不外泄：</strong>资料绝不出售给第三方。</li>
+                </ul>
+            </div>`,
+        return_policy: `
+            <div class="space-y-4 text-left text-sm">
+                <div><h4 class="font-bold text-gray-800 mb-1">💅 服务售后</h4><p class="text-red-500 font-bold mb-2">服务离店后恕不退款。</p><p class="text-gray-600">如对效果不满意请当场提出。接睫毛 3 天内非人为大量脱落可免费修补。</p></div>
+                <div class="border-t pt-4"><h4 class="font-bold text-gray-800 mb-1">💸 定金退还</h4><p class="text-gray-600">更改时间请提前 24 小时通知，否则定金不退。</p></div>
+            </div>`
+    };
+
+    // 3. 智能判断：有自定义用自定义，没有用默认
+    // (把换行符 \n 换成 <br> 以便在网页显示)
+    const formatText = (text) => text ? `<div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${text}</div>` : null;
+
+    const policies = {
+        terms: {
+            title: "Terms & Conditions (服务与免责条款)",
+            content: formatText(settings.custom_terms) || defaultTexts.terms
         },
-        
-        // 3. 退换货政策 (涵盖：退款、补修、保修)
+        privacy: {
+            title: "Privacy Policy (隐私政策)",
+            content: formatText(settings.custom_privacy) || defaultTexts.privacy
+        },
         return_policy: {
             title: "Return & Refund (售后与退款政策)",
-            content: `
-                <div class="space-y-4 text-left text-sm">
-                    <div>
-                        <h4 class="font-bold text-gray-800 mb-1">💅 服务售后 (Services)</h4>
-                        <p class="text-red-500 font-bold mb-2">服务一经完成并离开店铺，恕不退款 (Strictly No Refunds)。</p>
-                        <ul class="list-disc pl-4 text-gray-600 space-y-1">
-                            <li><strong>当场确认：</strong>请在服务结束时仔细检查，如有不满意请当场提出，我们将立即调整。</li>
-                            <li><strong>3天保修期：</strong>若接睫毛在 3 天内出现非人为的大量脱落（超过 30%），请拍照联系我们，我们将为您安排<strong>免费修补一次</strong>。</li>
-                            <li><strong>人为损坏：</strong>因揉眼、使用油性卸妆油、桑拿游泳等个人护理不当导致的脱落，不在保修范围内。</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="border-t pt-4">
-                        <h4 class="font-bold text-gray-800 mb-1">📦 产品退换 (Products)</h4>
-                        <p class="text-gray-600">实体商品（如护理液）若未拆封，可在 7 天内凭收据更换。已拆封使用的商品因卫生原因恕不退换。</p>
-                    </div>
-
-                    <div class="border-t pt-4">
-                        <h4 class="font-bold text-gray-800 mb-1">💸 定金退还 (Deposits)</h4>
-                        <p class="text-gray-600">预约需支付定金。若需更改时间，请至少提前 <strong>24小时</strong> 通知，定金可保留至下次使用。临时取消或爽约，定金不退。</p>
-                    </div>
-                </div>
-            `
+            content: formatText(settings.custom_return) || defaultTexts.return_policy
         }
     };
 
@@ -3553,20 +3565,15 @@ function showPolicyModal(config, type) {
     
     modal.innerHTML = `
         <div class="animate-fade-in-down" style="background: rgba(255, 255, 255, 0.98); padding: 0; border-radius: 16px; max-width: 600px; width: 100%; border-top: 6px solid ${config.primary_action_color}; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); max-height: 85vh; display: flex; flex-direction: column;">
-            
             <div class="flex justify-between items-center p-6 border-b">
                 <h3 style="font-size: ${config.font_size * 1.2}px; font-weight: 700; color: ${config.primary_action_color};">
                     ${policy.title}
                 </h3>
-                <button id="closePolicyBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
+                <button id="closePolicyBtn" class="text-gray-400 hover:text-gray-600 transition-colors">✕</button>
             </div>
-            
             <div class="p-6 overflow-y-auto" style="font-family: sans-serif; line-height: 1.6;">
                 ${policy.content}
             </div>
-            
             <div class="p-6 border-t bg-gray-50 rounded-b-xl text-center">
                 <button id="okPolicyBtn" class="px-10 py-3 rounded-full shadow-lg transform active:scale-95 transition-all hover:shadow-xl" 
                     style="background: ${config.primary_action_color}; color: #ffffff; font-weight: bold; font-size: 14px;">
@@ -3578,7 +3585,6 @@ function showPolicyModal(config, type) {
     
     document.body.appendChild(modal);
     const close = () => modal.remove();
-    
     document.getElementById('closePolicyBtn').addEventListener('click', close);
     document.getElementById('okPolicyBtn').addEventListener('click', close);
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
@@ -4267,66 +4273,77 @@ function showPostModal(config) {
 }
 
 // ==========================================
-// 👇 新增：数据备份与恢复功能 (放在文件最末尾)
+// 👇 [v1.3.2] 数据备份与恢复 (修复版)
 // ==========================================
 function exportData() {
-    const allData = {
-        customers: getDataByType('customer_account'),
-        bookings: getDataByType('booking'),
-        services: getDataByType('service'),
-        products: getDataByType('product'),
-        orders: getDataByType('product_order'),
-        reviews: getDataByType('review'),
-        settings: getDataByType('discount_settings'),
-        owner: getDataByType('owner_credentials')
+    // 获取所有类型的数据
+    const allDataExport = {
+        metadata: {
+            version: "v1.3.2",
+            exportedAt: new Date().toISOString(),
+            app: "Gem Brow SaaS"
+        },
+        data: loadDb() // 直接获取当前 LocalStorage 里的所有数据
     };
     
-    const dataStr = JSON.stringify(allData, null, 2); // 美化格式
+    const dataStr = JSON.stringify(allDataExport, null, 2); // 美化格式
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
-    const exportFileDefaultName = `GemBrow_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    // 生成带时间的文件名: GemBrow_Backup_2026-01-02_1430.json
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '');
+    const exportFileDefaultName = `GemBrow_Backup_${dateStr}_${timeStr}.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
-    showToast('备份文件已下载 ✅');
+    showToast('✅ 备份文件已下载，请妥善保存');
 }
 
 function importData(input) {
     const file = input.files[0];
     if (!file) return;
 
-    if (!confirm("⚠️ 警告：导入数据将【覆盖】当前所有数据！\n建议先导出备份。\n确定要继续吗？")) {
-        input.value = ''; 
+    // 二次确认，防止手滑覆盖
+    if (!confirm("⚠️ 高能预警：\n\n导入数据将【彻底覆盖/清空】当前所有数据！\n导入后无法撤销。\n\n建议先点左边的「导出」备份当前数据。\n\n确定要继续吗？")) {
+        input.value = ''; // 清空选择
         return;
     }
 
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            const importedData = JSON.parse(e.target.result);
-            
-            // 简单的校验
-            if (importedData.customers && importedData.bookings) {
-                localStorage.setItem('gem_brow_data', JSON.stringify(importedData.customers.concat(
-                    importedData.bookings, 
-                    importedData.services || [], 
-                    importedData.products || [], 
-                    importedData.orders || [],
-                    importedData.reviews || [],
-                    importedData.settings || [],
-                    importedData.owner || []
-                )));
-                
-                alert("数据恢复成功！系统将刷新。");
-                location.reload();
+            const jsonContent = JSON.parse(e.target.result);
+            let finalData = [];
+
+            // 兼容性处理：检查是新版结构(带metadata)还是旧版结构(纯数组)
+            if (Array.isArray(jsonContent)) {
+                // 旧版备份文件
+                finalData = jsonContent;
+            } else if (jsonContent.data && Array.isArray(jsonContent.data)) {
+                // 新版备份文件
+                finalData = jsonContent.data;
             } else {
-                alert("文件格式错误，找不到关键数据！");
+                throw new Error("文件格式不正确，找不到数据核心");
             }
+            
+            // 简单的完整性校验 (至少要有一条数据或者空数组)
+            if (!Array.isArray(finalData)) throw new Error("数据损坏");
+
+            // 🔥 关键修复：Key 必须是 'gembrow_data'
+            localStorage.setItem('gembrow_data', JSON.stringify(finalData));
+            
+            // 立即刷新内存数据
+            if (window.dataHandler) window.dataHandler.onDataChanged(finalData);
+            
+            alert("🎉 数据恢复成功！页面将自动刷新。");
+            location.reload();
+            
         } catch (err) {
             console.error(err);
-            alert("读取失败，文件可能已损坏。");
+            alert("❌ 恢复失败：文件可能已损坏或格式错误。\n\n错误信息: " + err.message);
         }
     };
     reader.readAsText(file);
@@ -5511,6 +5528,17 @@ function handleFileWithCrop(file, inputId, previewId, placeholderId, isRound = f
 // 👇 V1.2.0 新增：更新日志系统 (Changelog)
 // ==========================================
 const appChangelog = [
+    {
+        version: "v1.3.1-2",
+        date: "2026-01-02",
+        title: "🛡️ 安全与移动版 (Secure & Mobile)",
+        features: [
+            "📱 <b>收银台双屏模式</b>：手机端新增 [选购/结算] 切换标签，告别拥挤。",
+            "📜 <b>自定义条款</b>：老板现在可以在设置里修改服务条款、隐私政策和退款规则。",
+            "💾 <b>数据灾备修复</b>：优化 JSON 备份逻辑，修复恢复数据时的 Key 匹配问题。",
+            "🖨️ <b>优雅打印</b>：打印报表时自动隐藏无关按钮，只保留核心数据卡片。"
+        ]
+    },
     {
         version: "v1.3.0",
         date: "2025-12-31",
