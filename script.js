@@ -703,59 +703,142 @@ function renderLoginPage() {
 }
 
 // ==========================================
-// 👇 [v1.3.1 优化版] 主程序 (打印时隐藏头尾)
+// 👇 [v1.3.1-4] 主程序 (带用户头像的菜单)
 // ==========================================
 function renderMainApp(app, config, services, bookings, posts, customers) {
     const currentYear = new Date().getFullYear();
     const settings = getDiscountSettings();
+    
+    window.toggleMenu = () => {
+        showMenu = !showMenu;
+        renderApp();
+    };
+
+    // 🟢 [新增] 智能头像逻辑
+    let userAvatarUrl = '';
+    let userDisplayName = '';
+    let userRoleName = '';
+
+    if (currentMode === 'owner') {
+        // 店长：显示店铺 Logo 或 默认头像
+        userAvatarUrl = settings.logo_header || settings.logo_url || "https://ui-avatars.com/api/?name=Boss&background=000&color=fff&size=128";
+        userDisplayName = "👑 店长 (Owner)";
+        userRoleName = "Administrator";
+    } else if (loggedInCustomerName) {
+        // 顾客：尝试查找头像，如果没有就用名字生成
+        const currentCustomer = customers.find(c => c.username === loggedInCustomerName);
+        // 如果顾客数据里有 avatar 字段就用，没有就用 ui-avatars 生成
+        userAvatarUrl = (currentCustomer && currentCustomer.avatar) 
+            ? currentCustomer.avatar 
+            : `https://ui-avatars.com/api/?name=${encodeURIComponent(loggedInCustomerName)}&background=random&color=fff&size=128`;
+        userDisplayName = loggedInCustomerName;
+        userRoleName = "Verified Member";
+    } else {
+        // 游客
+        userAvatarUrl = "https://ui-avatars.com/api/?name=Guest&background=eee&color=999&size=128";
+        userDisplayName = "游客 (Guest)";
+        userRoleName = "Visitor";
+    }
+
     app.innerHTML = `
         <div class="min-h-full">
-            <header class="print:hidden" style="background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; border-bottom: 3px solid ${config.primary_action_color};">
-                <div class="max-w-7xl mx-auto px-6 py-2 flex justify-between items-center">
-                    <img src="${settings.logo_header || settings.logo_url || './assets/header_logo.png'}" alt="${config.app_title}" class="header-logo-img rounded-full" style="height: 40px; width: 40px; object-fit: cover;">
-                    <button id="menuBtn" class="px-4 py-2 rounded-lg" style="border: 2px solid ${config.primary_action_color}; background: ${config.primary_action_color}22; color: ${config.primary_action_color}; font-family: Lato, sans-serif;">
-                        ☰ 菜单
+            <header class="print:hidden bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-40 transition-all duration-300" 
+                style="border-bottom: 3px solid ${config.primary_action_color};">
+                <div class="max-w-7xl mx-auto px-4 md:px-6 py-3 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <img src="${settings.logo_header || settings.logo_url || './assets/header_logo.png'}" 
+                             alt="${config.app_title}" 
+                             class="rounded-full shadow-sm hover:rotate-12 transition-transform duration-500" 
+                             style="height: 42px; width: 42px; object-fit: cover;">
+                        <h1 class="text-lg font-bold hidden md:block" style="color: ${config.text_color}; font-family: ${config.font_family};">
+                            ${settings.shop_name || config.app_title}
+                        </h1>
+                    </div>
+
+                    <button onclick="toggleMenu()" 
+                        class="px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 active:scale-95 transition-all" 
+                        style="border: 2px solid ${config.primary_action_color}; color: ${config.primary_action_color};">
+                        ${loggedInCustomerName ? `<img src="${userAvatarUrl}" class="w-5 h-5 rounded-full border border-current">` : ''}
+                        <span>${showMenu ? '✕ 关闭' : '☰ 菜单'}</span>
                     </button>
                 </div>
             </header>
-                    
+            
             ${showMenu ? `
-                <div id="menuOverlay" class="modal-backdrop fixed inset-0 z-50 flex items-end justify-end p-4 print:hidden">
-                    <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 24px; width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 2px solid ${config.primary_action_color};">
-                        <h3 class="mb-4" style="font-size: ${config.font_size * 1.3}px; font-weight: 700; color: ${config.primary_action_color};">菜单</h3>
-                        ${currentMode === 'owner' ? `
-                            <button id="viewManage" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'manage' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">🛠️ 管理中心</button>
-                            <button id="viewStats" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'stats' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">📊 数据统计</button>
-                            <button id="viewCustomers" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'customers' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">👥 客户管理</button>
-                            <button id="viewSettings" class="w-full text-left px-4 py-3 rounded-lg mb-4" style="font-family: Lato, sans-serif; background: ${currentView === 'settings' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">⚙️ 系统设置</button>
-                        ` : `
-                            <button id="viewServices" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'services' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">💅 服务预约</button>
-                            ${loggedInCustomerName ? `
-                            <button id="viewMyBookings" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'mybookings' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                              📅 我的预约 (待服务)
+                <div id="menuOverlay" onclick="toggleMenu()" class="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm print:hidden flex items-start justify-end">
+                    
+                    <div onclick="event.stopPropagation()" 
+                         class="animate-fade-in-down bg-white w-full md:w-80 shadow-2xl overflow-hidden"
+                         style="
+                            border-bottom-left-radius: 24px; 
+                            border-bottom-right-radius: 0px; 
+                            border-bottom-left-radius: 24px;
+                            border-top: none; 
+                            border-left: 1px solid #eee;
+                            border-bottom: 4px solid ${config.primary_action_color};
+                         ">
+                        
+                        <div class="p-6 bg-gray-50 border-b border-gray-100 flex items-center gap-4">
+                            <img src="${userAvatarUrl}" alt="Avatar" 
+                                 class="w-14 h-14 rounded-full border-4 border-white shadow-md object-cover bg-white">
+                            
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">${userRoleName}</p>
+                                <h3 class="font-bold text-lg text-gray-800 truncate leading-tight">
+                                    ${userDisplayName}
+                                </h3>
+                                ${loggedInCustomerName ? `<p class="text-xs text-green-500 font-bold mt-1">● Online</p>` : ''}
+                            </div>
+                        </div>
+
+                        <div class="p-4 space-y-2 max-h-[70vh] overflow-y-auto">
+                            ${currentMode === 'owner' ? `
+                                <button onclick="currentView='manage'; toggleMenu()" class="w-full text-left px-5 py-4 rounded-xl font-bold transition-all hover:bg-gray-50 flex items-center gap-3 ${currentView === 'manage' ? 'bg-pink-50 text-pink-600' : 'text-gray-600'}">
+                                    <span>🛠️</span> 管理中心 (Dashboard)
+                                </button>
+                                <button onclick="currentView='stats'; toggleMenu()" class="w-full text-left px-5 py-4 rounded-xl font-bold transition-all hover:bg-gray-50 flex items-center gap-3 ${currentView === 'stats' ? 'bg-pink-50 text-pink-600' : 'text-gray-600'}">
+                                    <span>📊</span> 数据统计 (Reports)
+                                </button>
+                                <button onclick="currentView='customers'; toggleMenu()" class="w-full text-left px-5 py-4 rounded-xl font-bold transition-all hover:bg-gray-50 flex items-center gap-3 ${currentView === 'customers' ? 'bg-pink-50 text-pink-600' : 'text-gray-600'}">
+                                    <span>👥</span> 客户管理 (CRM)
+                                </button>
+                                <button onclick="currentView='settings'; toggleMenu()" class="w-full text-left px-5 py-4 rounded-xl font-bold transition-all hover:bg-gray-50 flex items-center gap-3 ${currentView === 'settings' ? 'bg-pink-50 text-pink-600' : 'text-gray-600'}">
+                                    <span>⚙️</span> 系统设置 (Settings)
+                                </button>
+                            ` : `
+                                <button onclick="currentView='services'; toggleMenu()" class="w-full text-left px-5 py-4 rounded-xl font-bold transition-all hover:bg-gray-50 flex items-center gap-3 ${currentView === 'services' ? 'bg-pink-50 text-pink-600' : 'text-gray-600'}">
+                                    <span>💅</span> 服务预约 (Book Now)
+                                </button>
+                                ${loggedInCustomerName ? `
+                                <button onclick="currentView='mybookings'; toggleMenu()" class="w-full text-left px-5 py-4 rounded-xl font-bold transition-all hover:bg-gray-50 flex items-center gap-3 ${currentView === 'mybookings' ? 'bg-pink-50 text-pink-600' : 'text-gray-600'}">
+                                    <span>📅</span> 我的预约 (My Bookings)
+                                </button>
+                                <button onclick="currentView='history'; toggleMenu()" class="w-full text-left px-5 py-4 rounded-xl font-bold transition-all hover:bg-gray-50 flex items-center gap-3 ${currentView === 'history' ? 'bg-pink-50 text-pink-600' : 'text-gray-600'}">
+                                    <span>📜</span> 历史账单 (History)
+                                </button>
+                                <button onclick="currentView='profile'; toggleMenu()" class="w-full text-left px-5 py-4 rounded-xl font-bold transition-all hover:bg-gray-50 flex items-center gap-3 ${currentView === 'profile' ? 'bg-pink-50 text-pink-600' : 'text-gray-600'}">
+                                    <span>👤</span> 个人档案 (Profile)
+                                </button>
+                                ` : ''}
+                            `}
+                        </div>
+
+                        <div class="p-4 border-t border-gray-100 bg-gray-50">
+                            <button class="logout-btn w-full py-3 rounded-xl font-bold text-white shadow-lg transform active:scale-95 transition-all" 
+                                onclick="toggleMenu()"
+                                style="background: ${config.secondary_action_color};">
+                                ${loggedInCustomerName || currentMode === 'owner' ? '🚪 退出登录 (Log Out)' : '🏠 返回首页 (Home)'}
                             </button>
-    
-                            <button id="viewHistory" class="w-full text-left px-4 py-3 rounded-lg mb-2" style="font-family: Lato, sans-serif; background: ${currentView === 'history' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                              📜 历史与账单
-                            </button>
-    
-                            <button id="viewProfile" class="w-full text-left px-4 py-3 rounded-lg mb-4" style="font-family: Lato, sans-serif; background: ${currentView === 'profile' ? config.primary_action_color + '22' : 'transparent'}; color: ${config.text_color};">
-                              👤 我的账户
-                            </button>
-                            ` : ''}
-                        `}
-                        <button class="logout-btn w-full px-4 py-3 rounded-lg" style="font-family: Lato, sans-serif; background: ${config.secondary_action_color}; color: #ffffff;">
-                            ${loggedInCustomerName || currentMode === 'owner' ? '退出登录' : '返回首页'}
-                        </button>
+                        </div>
                     </div>
                 </div>
             ` : ''}
             
-            <main class="max-w-7xl mx-auto px-6 py-8 print:p-0">
+            <main class="max-w-7xl mx-auto px-4 md:px-6 py-8 print:p-0">
                 ${currentMode === 'owner' ? renderOwnerView(config, services, bookings, posts, customers) : renderCustomerView(config, services, bookings, posts)}
             </main>
 
-            <footer class="mt-auto py-12 text-center border-t border-gray-100 print:hidden" style="background: #fafafa; color: ${config.text_color};">
+            <footer class="mt-auto py-12 text-center border-t border-gray-100 print:hidden bg-[#fafafa]">
                <div class="max-w-7xl mx-auto px-6">
                    <div class="flex justify-center gap-8 mb-8">
                        ${settings.fb_link ? `<a href="${settings.fb_link}" target="_blank" class="opacity-60 hover:opacity-100 hover:scale-110 transition-all"><img src="https://cdn-icons-png.flaticon.com/512/5968/5968764.png" width="24" alt="FB"></a>` : ''}
@@ -783,7 +866,7 @@ function renderMainApp(app, config, services, bookings, posts, customers) {
                    </div>
             
                    <p class="text-[10px] opacity-30 mt-2">
-                       Copyright © ${new Date().getFullYear()} ${settings.shop_name || config.app_title}. All rights reserved.
+                       Copyright © ${currentYear} ${settings.shop_name || config.app_title}. <br class="md:hidden"> Powered by Threshold Studio.
                    </p>
                </div>
            </footer>
@@ -1444,7 +1527,7 @@ function renderSettings(config) {
                 </h2>
                 
                 ${(() => {
-                    const currentVersion = 'v1.3.1';
+                    const currentVersion = 'v1.3.3';
                     // 检查是否已读
                     const lastSeen = localStorage.getItem('gembrow_last_seen_version');
                     const showBadge = lastSeen !== currentVersion;
@@ -1991,83 +2074,65 @@ function renderMyBookings(config, bookings) {
 }
 
 // ==========================================
-// 👇 个人中心 (显示头像)
+// 👇 [v1.3.1-5] 个人档案 (支持点击头像上传)
 // ==========================================
 function renderProfile(config, bookings) {
+    // 1. 获取当前用户数据
     const customerAccount = getDataByType('customer_account').find(acc => acc.username === loggedInCustomerName);
     if (!customerAccount) return '';
 
-    const myBookings = bookings.filter(b => b.customerName === loggedInCustomerName);
-    const completedBookings = myBookings.filter(b => b.status === 'completed');
-    const settings = getDiscountSettings();
-    const showRewards = settings.enable_rewards !== false;
-
-    // 默认头像 (如果没传就显示这个)
-    const avatarUrl = customerAccount.avatarUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png';
-
+    // 2. 决定头像：优先用上传的(avatarUrl)，没有就用自动生成的
+    // 注意：旧数据可能叫 avatarUrl，新逻辑为了统一可能叫 avatar，这里做个兼容
+    const currentAvatar = customerAccount.avatar || customerAccount.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(loggedInCustomerName)}&background=random&color=fff&size=150`;
+    
+    // 3. 渲染界面
     return `
-        <div>
-            <h2 class="mb-8" style="font-size: ${config.font_size * 2}px; font-weight: 700; color: ${config.primary_action_color};">
-                我的账户
-            </h2>
-            
-            <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 32px; max-width: 600px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
-                 
-                 <div style="position: absolute; top: 0; left: 0; right: 0; height: 80px; background: linear-gradient(135deg, ${config.primary_action_color}22, ${config.secondary_action_color}22);"></div>
-
-                 <div class="relative flex flex-col items-center mb-6">
-                    <div class="w-24 h-24 rounded-full border-4 bg-white shadow-md overflow-hidden mb-3" style="border-color: ${config.surface_color};">
-                        <img src="${avatarUrl}" class="w-full h-full object-cover">
+        <div class="space-y-6 max-w-md mx-auto">
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
+                <div class="relative group cursor-pointer" onclick="document.getElementById('avatarInput').click()">
+                    <img src="${currentAvatar}" 
+                         class="w-28 h-28 rounded-full border-4 border-pink-50 shadow-md object-cover group-hover:opacity-80 transition-opacity">
+                    
+                    <div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span class="text-white text-2xl">📷</span>
                     </div>
                     
-                    <h3 style="font-size: ${config.font_size * 1.5}px; font-weight: 700; color: ${config.text_color};">
-                        ${customerAccount.username}
-                    </h3>
-                    
-                    ${showRewards ? `
-                        <div class="mt-1">${getMembershipBadge(customerAccount.membershipLevel, config)}</div>
-                    ` : ''}
-                 </div>
-
-                 <div class="space-y-3 text-center">
-                      <p style="opacity: 0.8;">📧 ${customerAccount.email}</p>
-
-                      ${showRewards ? `
-                      <div class="flex justify-center gap-4 py-4 border-t border-b border-gray-100 my-4">
-                          <div>
-                              <div class="font-bold text-xl" style="color: ${config.primary_action_color};">${customerAccount.points}</div>
-                              <div class="text-xs text-gray-400">积分</div>
-                          </div>
-                          <div class="w-px bg-gray-200"></div>
-                          <div>
-                              <div class="font-bold text-xl" style="color: ${config.secondary_action_color};">${getMembershipDiscountText(customerAccount.membershipLevel)}</div>
-                              <div class="text-xs text-gray-400">当前折扣</div>
-                          </div>
-                      </div>
-                      ` : ''}
+                    <input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="window.handleAvatarUpload(this)">
+                </div>
                 
-                     <div class="grid grid-cols-2 gap-4 text-sm opacity-80 mb-6">
-                         <div class="bg-gray-50 p-2 rounded">📅 总预约: <b>${myBookings.length}</b> 次</div>
-                         <div class="bg-gray-50 p-2 rounded">✅ 已完成: <b>${completedBookings.length}</b> 次</div>
-                     </div>
+                <h2 class="mt-4 text-2xl font-bold text-gray-800">${loggedInCustomerName}</h2>
+                <p class="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full mt-2">点击头像更换照片</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                <h3 class="font-bold text-gray-800 border-b pb-2 mb-4">基本资料</h3>
                 
-                     <button id="editProfileBtn" class="w-full btn-primary py-3 rounded-lg shadow-sm hover:shadow-md transition-shadow"
-                         style="background: ${config.primary_action_color}; color: #ffffff; font-weight: bold;">
-                         ✏️ 编辑个人资料 / 更换头像
+                <div class="flex justify-between items-center py-2 border-b border-gray-50">
+                    <span class="text-gray-500 text-sm">手机号</span>
+                    <span class="font-mono font-bold text-gray-700">${customerAccount.phone || '未绑定'}</span>
+                </div>
+                
+                <div class="flex justify-between items-center py-2 border-b border-gray-50">
+                    <span class="text-gray-500 text-sm">电子邮箱</span>
+                    <span class="text-gray-700 text-sm">${customerAccount.email || '-'}</span>
+                </div>
+
+                <div class="flex justify-between items-center py-2 border-b border-gray-50">
+                    <span class="text-gray-500 text-sm">注册时间</span>
+                    <span class="font-mono text-gray-700 text-sm">${customerAccount.createdAt ? new Date(customerAccount.createdAt).toLocaleDateString() : '-'}</span>
+                </div>
+                
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-gray-500 text-sm">会员等级</span>
+                    <div>${getMembershipBadge(customerAccount.membershipLevel, config)}</div>
+                </div>
+
+                <div class="pt-4">
+                     <button id="editProfileBtn" class="w-full py-3 rounded-lg shadow-sm hover:shadow-md transition-shadow font-bold text-white"
+                         style="background: ${config.primary_action_color};">
+                         ✏️ 编辑详细资料
                      </button>
-                 </div>
-                 
-                 ${showRewards ? `
-                 <div class="mt-8 pt-6 border-t border-gray-100">
-                     <h4 class="font-bold mb-3 text-sm opacity-60">💎 会员等级说明</h4>
-                     <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs opacity-70">
-                         <div class="flex justify-between"><span>🥉 铜牌</span> <span>${settings.bronze_points}分 / ${settings.bronze_discount}%</span></div>
-                         <div class="flex justify-between"><span>🥈 银牌</span> <span>${settings.silver_points}分 / ${settings.silver_discount}%</span></div>
-                         <div class="flex justify-between"><span>🥇 金牌</span> <span>${settings.gold_points}分 / ${settings.gold_discount}%</span></div>
-                         <div class="flex justify-between"><span>💎 白金</span> <span>${settings.platinum_points}分 / ${settings.platinum_discount}%</span></div>
-                     </div>
-                 </div>
-                 ` : ''}
+                </div>
             </div>
         </div>
     `;
@@ -5521,9 +5586,84 @@ function handleFileWithCrop(file, inputId, previewId, placeholderId, isRound = f
 }
 
 // ==========================================
-// 👇 V1.2.0 新增：更新日志系统 (Changelog)
+// 👇 [v1.3.1-5] 头像上传与压缩处理 (新增)
+// ==========================================
+window.handleAvatarUpload = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    // 1. 限制文件类型
+    if (!file.type.startsWith('image/')) {
+        showToast('❌ 请选择图片文件 (JPG/PNG)');
+        return;
+    }
+
+    showToast('⏳ 正在处理头像...');
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.src = e.target.result;
+        
+        img.onload = function() {
+            // 2. 创建画布进行压缩 (Canvas)
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 设置头像尺寸 (300x300 足够清晰，且文件很小)
+            const MAX_SIZE = 300; 
+            let width = img.width;
+            let height = img.height;
+
+            // 简单的居中裁剪逻辑 (模拟 object-fit: cover)
+            const minDim = Math.min(width, height);
+            const sx = (width - minDim) / 2;
+            const sy = (height - minDim) / 2;
+
+            canvas.width = MAX_SIZE;
+            canvas.height = MAX_SIZE;
+            
+            // 3. 绘制图片 (裁剪正方形)
+            ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, MAX_SIZE, MAX_SIZE);
+
+            // 4. 导出为 Base64 (JPEG 质量 0.7)
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+            // 5. 保存到数据库
+            // 注意：这里我们使用 updateRecord 确保数据同步
+            const customers = getDataByType('customer_account');
+            const me = customers.find(c => c.username === loggedInCustomerName);
+            
+            if (me) {
+                // 更新字段：avatar (统一新字段名)
+                updateRecord(me, { avatar: compressedDataUrl }).then(() => {
+                    showToast('✅ 头像更新成功！');
+                    // 稍微延迟一下刷新，让用户看到提示
+                    setTimeout(() => renderApp(), 500);
+                });
+            } else {
+                showToast('❌ 找不到用户数据，请重新登录');
+            }
+        };
+    };
+    reader.readAsDataURL(file);
+};
+
+// ==========================================
+// 👇 V1.3.3 新增：更新日志系统 (Changelog)
 // ==========================================
 const appChangelog = [
+    {
+        version: "v1.3.3",
+        date: "2026-01-02",
+        title: "🎨 颜值与交互进化 (UI/UX Evolution)",
+        features: [
+            "👤 <b>头像自定义</b>：顾客与店长均可点击头像上传个性化照片，系统自动智能压缩。",
+            "📱 <b>灵动菜单</b>：全新顶部下滑式菜单 (Drop-down)，单手操作更丝滑，按钮实时同步用户头像。",
+            "🧩 <b>界面修复</b>：修复 Google 翻译/WhatsApp 按钮遮挡裁剪页面的问题，优化层级显示。",
+            "🖼️ <b>细节打磨</b>：优化个人中心布局，增加交互提示图标，提升整体精致度。"
+        ]
+    },
     {
         version: "v1.3.1-2",
         date: "2026-01-02",
@@ -5701,4 +5841,4 @@ function handleVersionClick(config, version) {
 initApp();
 initGlobalWidgets();
 
-//Gem Brow beauty [v1.3.1]
+//Gem Brow beauty [v1.3.3]
