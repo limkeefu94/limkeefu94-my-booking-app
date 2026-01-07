@@ -3881,13 +3881,25 @@ async function initApp() {
     }
 }
 
-function showEditServiceModal(config, service) {
+// ==========================================
+// 👇 [v1.3.6 Style] 服务弹窗 (美化版 - 支持添加/编辑)
+// ==========================================
+function showEditServiceModal(config, serviceId = null) {
+    const services = getDataByType('service');
+    // 🔥 关键逻辑：如果有ID就是编辑，没有就是添加（给一个空对象）
+    const service = serviceId 
+        ? services.find(s => s.id === serviceId) 
+        : { name: '', price: '', duration: 60, description: '', imageUrl: '' };
+    const isEdit = !!serviceId;
+
     const modal = document.createElement('div');
-    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/50 backdrop-blur-sm';
+    
+    // 👇 使用你提供的精美样式
     modal.innerHTML = `
-        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;" class="animate-scale-in">
             <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
-                编辑服务: ${service.name}
+                ${isEdit ? '编辑服务' : '添加新服务'}: ${service.name}
             </h3>
             
             <form id="editServiceForm">
@@ -3905,7 +3917,7 @@ function showEditServiceModal(config, service) {
                 
                 <div class="mb-4">
                     <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">时长 (分钟)</label>
-                    <input type="number" id="editServiceDuration" min="0" value="${service.duration || 0}"
+                    <input type="number" id="editServiceDuration" min="0" value="${service.duration || 60}"
                         class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">
                 </div>
 
@@ -3927,14 +3939,14 @@ function showEditServiceModal(config, service) {
                 
                 <div class="mb-6">
                     <label class="block mb-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size * 0.9}px; color: ${config.text_color}; font-weight: 600;">描述</label>
-                    <textarea id="editServiceDescription" required rows="3"
-                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">${service.description}</textarea>
+                    <textarea id="editServiceDescription" rows="3"
+                        class="w-full px-4 py-3 rounded-lg border-2" style="font-family: Lato, sans-serif; font-size: ${config.font_size}px; border-color: ${config.text_color}33;">${service.description || ''}</textarea>
                 </div>
                 
                 <div class="flex gap-3">
-                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg font-bold shadow-md"
                         style="font-family: Lato, sans-serif; background: ${config.primary_action_color}; color: #ffffff; font-size: ${config.font_size * 1.1}px;">保存更改</button>
-                    <button type="button" id="cancelEditServiceBtn" class="flex-1 py-3 rounded-lg"
+                    <button type="button" id="cancelEditServiceBtn" class="flex-1 py-3 rounded-lg font-bold"
                         style="font-family: Lato, sans-serif; background: transparent; color: ${config.text_color}; font-size: ${config.font_size * 1.1}px; border: 2px solid ${config.text_color};">取消</button>
                 </div>
             </form>
@@ -3943,7 +3955,7 @@ function showEditServiceModal(config, service) {
     
     document.body.appendChild(modal);
     
-    // 编辑逻辑：图片处理
+    // 图片处理逻辑
     const dropZone = document.getElementById('editDropZone');
     const fileInput = document.getElementById('editFileInput');
     const imageInput = document.getElementById('editServiceImage');
@@ -3967,28 +3979,105 @@ function showEditServiceModal(config, service) {
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            openCropperModal(file, (base64) => {
-                imageInput.value = base64;
-                updatePreview(base64);
-            });
+            // 假设 openCropperModal 已经定义好
+            if(typeof openCropperModal === 'function') {
+                 openCropperModal(file, (base64) => {
+                    imageInput.value = base64;
+                    updatePreview(base64);
+                });
+            } else {
+                // 兜底：如果没有裁剪器，直接转Base64
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imageInput.value = e.target.result;
+                    updatePreview(e.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
         }
     });
 
-    // 提交更新
+    // 提交处理
     document.getElementById('editServiceForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        await updateRecord(service, {
+        const formData = {
             name: document.getElementById('editServiceName').value,
             price: parseFloat(document.getElementById('editServicePrice').value),
             duration: parseInt(document.getElementById('editServiceDuration').value) || 0,
             description: document.getElementById('editServiceDescription').value,
             imageUrl: imageInput.value
-        });
+        };
+
+        if (isEdit) {
+            await updateRecord(service, formData);
+        } else {
+            await createRecord({ type: 'service', ...formData });
+        }
         modal.remove();
+        renderApp();
     });
     
     document.getElementById('cancelEditServiceBtn').addEventListener('click', () => modal.remove());
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+// 2. 商品编辑/添加弹窗
+function showEditProductModal(config, productId = null) {
+    const products = getDataByType('product');
+    const product = productId ? products.find(p => p.id === productId) : { name: '', price: '', stock: 0, imageUrl: '' };
+    const isEdit = !!productId;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/50 backdrop-blur-sm';
+    
+    modal.innerHTML = `
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 animate-scale-in">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">${isEdit ? '编辑商品' : '上架新商品'}</h3>
+            <form id="productForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">商品名称</label>
+                    <input type="text" id="prodName" value="${product.name}" required class="w-full px-4 py-2 rounded-lg border border-gray-200">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">价格 (RM)</label>
+                        <input type="number" id="prodPrice" value="${product.price}" required class="w-full px-4 py-2 rounded-lg border border-gray-200">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">库存数量</label>
+                        <input type="number" id="prodStock" value="${product.stock}" required class="w-full px-4 py-2 rounded-lg border border-gray-200">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">图片链接 (选填)</label>
+                    <input type="text" id="prodImg" value="${product.imageUrl || ''}" placeholder="https://..." class="w-full px-4 py-2 rounded-lg border border-gray-200 text-xs">
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="button" class="flex-1 py-2 rounded-lg bg-gray-100 font-bold text-gray-500" onclick="this.closest('.modal-backdrop').remove()">取消</button>
+                    <button type="submit" class="flex-1 py-2 rounded-lg bg-green-600 text-white font-bold shadow-md">保存</button>
+                </div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('productForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const data = {
+            name: document.getElementById('prodName').value,
+            price: document.getElementById('prodPrice').value,
+            stock: parseInt(document.getElementById('prodStock').value) || 0,
+            imageUrl: document.getElementById('prodImg').value
+        };
+        
+        if (isEdit) {
+            await updateRecord(product, data);
+        } else {
+            await createRecord({ type: 'product', ...data });
+        }
+        modal.remove();
+        renderApp();
+    };
 }
 
 initApp();
@@ -4102,22 +4191,37 @@ function showProductModal(config) {
 }
 
 // ==========================================
-// 👇 V1.2.X 优化：编辑商品 (支持改库存/补货)
+// 👇 [v1.3.6 Fix] 商品弹窗 (含描述框)
 // ==========================================
-function showEditProductModal(config, product) {
+function showEditProductModal(config, productId = null) {
+    // 1. 获取数据
+    const products = getDataByType('product');
+    const product = productId 
+        ? products.find(p => p.id === productId) 
+        : { name: '', price: '', stock: 0, description: '', imageUrl: '' }; // 🔥 初始化加上 description
+    const isEdit = !!productId;
+
     const modal = document.createElement('div');
-    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/50 backdrop-blur-sm';
     
+    // 2. 渲染 UI
     modal.innerHTML = `
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border-4" style="border-color: ${config.primary_action_color};">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in border-4" style="border-color: ${config.primary_action_color};">
             <div class="p-6">
-                <h3 class="text-xl font-bold mb-6 text-center">📝 编辑 / 补货</h3>
+                <h3 class="text-xl font-bold mb-6 text-center text-gray-800">
+                    ${isEdit ? '📝 编辑 / 补货' : '📦 上架新商品'}
+                </h3>
                 
                 <div class="mb-6 flex justify-center">
                     <div class="relative group cursor-pointer w-32 h-32" id="editProdImgContainer">
-                        <img id="editProdPreview" src="${product.imageUrl || 'https://via.placeholder.com/150'}" class="w-full h-full object-cover rounded-xl border border-gray-200">
+                        <img id="editProdPreview" 
+                             src="${product.imageUrl || 'https://cdn-icons-png.flaticon.com/512/679/679922.png'}" 
+                             class="w-full h-full object-cover rounded-xl border border-gray-200 bg-gray-50">
+                        
                         <div class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all rounded-xl">
-                            <span class="text-white opacity-0 group-hover:opacity-100 font-bold text-sm">更换图片</span>
+                            <span class="text-white opacity-0 group-hover:opacity-100 font-bold text-sm">
+                                ${isEdit ? '更换图片' : '上传图片'}
+                            </span>
                         </div>
                         <input type="file" id="editProdFile" accept="image/*" class="hidden">
                         <input type="hidden" id="editProdImgBase64" value="${product.imageUrl || ''}">
@@ -4127,24 +4231,35 @@ function showEditProductModal(config, product) {
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 mb-1">商品名称</label>
-                        <input type="text" id="editProdName" value="${product.name}" class="w-full px-4 py-2 rounded-lg border focus:border-pink-500">
+                        <input type="text" id="editProdName" value="${product.name}" placeholder="例如: 修复面膜" 
+                            class="w-full px-4 py-2 rounded-lg border focus:border-pink-500 outline-none font-bold text-gray-700">
                     </div>
                     
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-gray-500 mb-1">价格 (RM)</label>
-                            <input type="number" id="editProdPrice" value="${product.price}" step="0.01" class="w-full px-4 py-2 rounded-lg border focus:border-pink-500">
+                            <input type="number" id="editProdPrice" value="${product.price}" step="0.01" 
+                                class="w-full px-4 py-2 rounded-lg border focus:border-pink-500 outline-none font-bold text-gray-700">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1">当前库存 (可以直接改)</label>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">当前库存</label>
                             <input type="number" id="editProdStock" value="${product.stock || 0}" min="0" 
-                                class="w-full px-4 py-2 rounded-lg border-2 border-blue-200 bg-blue-50 focus:border-blue-500 font-bold text-blue-700">
+                                class="w-full px-4 py-2 rounded-lg border-2 border-blue-200 bg-blue-50 focus:border-blue-500 outline-none font-bold text-blue-700">
                         </div>
                     </div>
 
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">商品描述 / 功效</label>
+                        <textarea id="editProdDesc" rows="3" placeholder="介绍一下这款商品..." 
+                            class="w-full px-4 py-2 rounded-lg border focus:border-pink-500 outline-none font-bold text-gray-700 text-sm">${product.description || ''}</textarea>
+                    </div>
+
                     <div class="flex gap-3 mt-6">
-                        <button id="cancelEditProd" class="flex-1 py-3 rounded-xl font-bold text-gray-500 border border-gray-200">取消</button>
-                        <button id="confirmEditProd" class="flex-1 py-3 rounded-xl font-bold text-white shadow-md" style="background: ${config.primary_action_color};">保存修改</button>
+                        <button id="cancelEditProd" class="flex-1 py-3 rounded-xl font-bold text-gray-500 border border-gray-200 hover:bg-gray-50">取消</button>
+                        <button id="confirmEditProd" class="flex-1 py-3 rounded-xl font-bold text-white shadow-md transform active:scale-95 transition-all" 
+                            style="background: ${config.primary_action_color};">
+                            ${isEdit ? '保存修改' : '立即上架'}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -4152,7 +4267,7 @@ function showEditProductModal(config, product) {
     `;
     document.body.appendChild(modal);
 
-    // 图片上传
+    // 3. 图片逻辑
     const fileInput = document.getElementById('editProdFile');
     const imageInput = document.getElementById('editProdImgBase64');
     const imagePreview = document.getElementById('editProdPreview');
@@ -4162,35 +4277,54 @@ function showEditProductModal(config, product) {
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            openCropperModal(file, (base64) => {
-                imageInput.value = base64;
-                imagePreview.src = base64;
-            }, false);
+            if (typeof openCropperModal === 'function') {
+                openCropperModal(file, (base64) => {
+                    imageInput.value = base64;
+                    imagePreview.src = base64;
+                }, false);
+            } else {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imageInput.value = e.target.result;
+                    imagePreview.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
         }
     });
 
-    // 保存逻辑
+    // 4. 保存逻辑
     document.getElementById('confirmEditProd').addEventListener('click', async () => {
         const name = document.getElementById('editProdName').value;
         const price = parseFloat(document.getElementById('editProdPrice').value);
-        const stock = parseInt(document.getElementById('editProdStock').value) || 0; // 获取新库存
+        const stock = parseInt(document.getElementById('editProdStock').value) || 0;
+        const description = document.getElementById('editProdDesc').value; // 🔥 获取描述
         const img = document.getElementById('editProdImgBase64').value;
 
-        if (!name || isNaN(price)) return showToast('请填写完整信息');
+        if (!name || isNaN(price)) return showToast('❌ 请填写完整的名称和价格');
 
-        await updateRecord(product, {
+        const data = {
             name,
             price,
-            stock, // 更新库存
+            stock,
+            description, // 🔥 保存描述
             imageUrl: img
-        });
+        };
 
-        showToast('✅ 商品资料已更新');
+        if (isEdit) {
+            await updateRecord(product, data);
+            showToast('✅ 商品资料已更新');
+        } else {
+            await createRecord({ type: 'product', ...data });
+            showToast('✅ 新商品已上架');
+        }
+
         modal.remove();
         renderApp();
     });
 
     document.getElementById('cancelEditProd').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
 
 // ==================== 购物车逻辑 ====================
@@ -4472,12 +4606,15 @@ function showProductDetailModal(config, product) {
     });
 }
 
-// === 动态管理弹窗 (新增) ===
+// ==========================================
+// 👇 [v1.3.6 New] 动态发布弹窗 (美化版)
+// ==========================================
 function showPostModal(config) {
     const modal = document.createElement('div');
-    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4';
+    modal.className = 'modal-backdrop fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/50 backdrop-blur-sm';
+    
     modal.innerHTML = `
-        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
+        <div style="background: rgba(255, 255, 255, 0.95); padding: 32px; border-radius: 16px; max-width: 500px; width: 100%; border: 3px solid ${config.primary_action_color}; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;" class="animate-scale-in">
             <h3 class="mb-6" style="font-size: ${config.font_size * 1.6}px; font-weight: 700; color: ${config.primary_action_color};">
                 发布新动态
             </h3>
@@ -4510,9 +4647,9 @@ function showPostModal(config) {
                 </div>
                 
                 <div class="flex gap-3">
-                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg"
+                    <button type="submit" class="flex-1 btn-primary py-3 rounded-lg font-bold shadow-md"
                         style="background: ${config.primary_action_color}; color: #ffffff;">发布</button>
-                    <button type="button" id="cancelPostBtn" class="flex-1 py-3 rounded-lg"
+                    <button type="button" id="cancelPostBtn" class="flex-1 py-3 rounded-lg font-bold"
                         style="border: 2px solid ${config.text_color};">取消</button>
                 </div>
             </form>
@@ -4534,13 +4671,20 @@ function showPostModal(config) {
     };
     imageInput.addEventListener('input', () => updatePreview(imageInput.value));
     dropZone.addEventListener('click', () => fileInput.click());
+    
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            openCropperModal(file, (base64) => {
-                imageInput.value = base64;
-                updatePreview(base64);
-            });
+            if(typeof openCropperModal === 'function') {
+                openCropperModal(file, (base64) => {
+                    imageInput.value = base64;
+                    updatePreview(base64);
+                });
+            } else {
+                const reader = new FileReader();
+                reader.onload = (e) => { imageInput.value = e.target.result; updatePreview(e.target.result); };
+                reader.readAsDataURL(file);
+            }
         }
     });
 
@@ -4550,10 +4694,12 @@ function showPostModal(config) {
             type: 'post',
             postTitle: document.getElementById('postTitle').value,
             postContent: document.getElementById('postContent').value,
-            imageUrl: imageInput.value, // 保存图片
+            imageUrl: imageInput.value,
             createdAt: new Date().toISOString()
         });
+        showToast("✅ 动态发布成功！");
         modal.remove();
+        renderApp();
     });
     
     document.getElementById('cancelPostBtn').addEventListener('click', () => modal.remove());
@@ -7434,7 +7580,7 @@ function showNotificationModal() {
 }
 
 // ==========================================
-// 👇 [v1.3.6 Fix] 资源管理 Tab (修复动态图片显示)
+// 👇 [v1.3.6 Fix] 资源列表 (修复点击无反应)
 // ==========================================
 function renderAssetTabs(services, products, posts, config) {
     const activeTab = window.assetTab || 'services';
@@ -7445,52 +7591,69 @@ function renderAssetTabs(services, products, posts, config) {
     if (activeTab === 'services') {
         addButtonText = '+ 添加服务';
         contentHtml = services.map(s => `
-            <div class="p-3 flex justify-between items-center bg-white border border-gray-100 rounded-xl mb-2">
+            <div class="p-3 flex justify-between items-center bg-white border border-gray-100 rounded-xl mb-2 hover:shadow-sm transition-shadow">
                 <div class="flex items-center gap-3">
-                    <img src="${s.imageUrl || './assets/default_eye.png'}" class="w-10 h-10 rounded object-cover bg-gray-100">
+                    <img src="${s.imageUrl || './assets/default_eye.png'}" class="w-10 h-10 rounded object-cover bg-gray-100 border border-gray-100">
                     <div>
                         <div class="text-sm font-bold text-gray-700">${s.name}</div>
-                        <div class="text-xs text-gray-400">RM${s.price}</div>
+                        <div class="text-xs text-gray-400">RM${s.price} • ${s.duration || 60}分钟</div>
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button class="editServiceBtn text-xs text-blue-500 font-bold px-2 py-1 bg-blue-50 rounded" data-id="${s.id}">编辑</button>
-                    <button class="deleteServiceBtn text-xs text-red-400 font-bold px-2 py-1 bg-red-50 rounded" data-id="${s.id}">删除</button>
+                    <button onclick="showEditServiceModal(elementSdk.config, '${s.id}')" 
+                        class="text-xs text-blue-500 font-bold px-3 py-1.5 bg-blue-50 rounded hover:bg-blue-100 transition-colors">
+                        编辑
+                    </button>
+                    <button onclick="window.handleDeleteAsset('service', '${s.id}')" 
+                        class="text-xs text-red-500 font-bold px-3 py-1.5 bg-red-50 rounded hover:bg-red-100 transition-colors">
+                        删除
+                    </button>
                 </div>
             </div>
         `).join('');
     } else if (activeTab === 'products') {
         addButtonText = '+ 添加商品';
         contentHtml = products.map(p => `
-            <div class="p-3 flex justify-between items-center bg-white border border-gray-100 rounded-xl mb-2">
+            <div class="p-3 flex justify-between items-center bg-white border border-gray-100 rounded-xl mb-2 hover:shadow-sm transition-shadow">
                 <div class="flex items-center gap-3">
-                    <img src="${p.imageUrl || 'https://cdn-icons-png.flaticon.com/512/679/679922.png'}" class="w-10 h-10 rounded object-cover bg-gray-100">
+                    <img src="${p.imageUrl || 'https://cdn-icons-png.flaticon.com/512/679/679922.png'}" class="w-10 h-10 rounded object-cover bg-gray-100 border border-gray-100">
                     <div>
                         <div class="text-sm font-bold text-gray-700">${p.name}</div>
-                        <div class="text-[10px] ${p.stock < 5 ? 'text-red-500' : 'text-green-500'} font-bold">库存: ${p.stock}</div>
+                        <div class="text-[10px] ${p.stock < 5 ? 'text-red-500' : 'text-green-500'} font-bold">
+                            RM${p.price} | 库存: ${p.stock}
+                        </div>
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button class="editProductBtn text-xs text-blue-500 font-bold px-2 py-1 bg-blue-50 rounded" data-id="${p.id}">补货</button>
-                    <button class="deleteProductBtn text-xs text-red-400 font-bold px-2 py-1 bg-red-50 rounded" data-id="${p.id}">下架</button>
+                    <button onclick="showEditProductModal(elementSdk.config, '${p.id}')" 
+                        class="text-xs text-blue-500 font-bold px-3 py-1.5 bg-blue-50 rounded hover:bg-blue-100 transition-colors">
+                        编辑/补货
+                    </button>
+                    <button onclick="window.handleDeleteAsset('product', '${p.id}')" 
+                        class="text-xs text-red-500 font-bold px-3 py-1.5 bg-red-50 rounded hover:bg-red-100 transition-colors">
+                        下架
+                    </button>
                 </div>
             </div>
         `).join('');
     } else if (activeTab === 'posts') {
         addButtonText = '+ 发布动态';
         contentHtml = posts.map(p => `
-            <div class="p-3 flex justify-between items-center bg-white border border-gray-100 rounded-xl mb-2">
+            <div class="p-3 flex justify-between items-center bg-white border border-gray-100 rounded-xl mb-2 hover:shadow-sm transition-shadow">
                 <div class="flex items-center gap-3">
                     ${p.imageUrl 
                         ? `<img src="${p.imageUrl}" class="w-10 h-10 rounded object-cover bg-gray-100 border border-gray-200">` 
-                        : `<span class="text-2xl w-10 text-center">📢</span>`
+                        : `<div class="w-10 h-10 rounded bg-blue-50 flex items-center justify-center text-lg">📢</div>`
                     }
                     <div class="flex-1 min-w-0">
-                        <div class="text-sm font-bold text-gray-700 truncate w-32 md:w-64">${p.postTitle}</div>
-                        <div class="text-[10px] text-gray-400 truncate w-32 md:w-64">${p.postContent}</div>
+                        <div class="text-sm font-bold text-gray-700 truncate w-32 md:w-48">${p.postTitle}</div>
+                        <div class="text-[10px] text-gray-400 truncate w-32 md:w-48">${p.postContent}</div>
                     </div>
                 </div>
-                <button class="deletePostBtn text-xs text-red-400 font-bold px-2 py-1 bg-red-50 rounded" data-id="${p.id}">删除</button>
+                <button onclick="window.handleDeleteAsset('post', '${p.id}')" 
+                    class="text-xs text-red-500 font-bold px-3 py-1.5 bg-red-50 rounded hover:bg-red-100 transition-colors">
+                    删除
+                </button>
             </div>
         `).join('');
     }
@@ -7517,6 +7680,54 @@ function renderAssetTabs(services, products, posts, config) {
         </div>
     `;
 }
+
+// ==========================================
+// 👇 [v1.3.6 Fix] 统一资源添加入口
+// ==========================================
+window.handleAddAsset = function() {
+    const activeTab = window.assetTab || 'services';
+    
+    if (activeTab === 'services') {
+        // 调用漂亮的服务弹窗 (不传ID = 添加模式)
+        showEditServiceModal(elementSdk.config);
+    } else if (activeTab === 'products') {
+        // 调用商品弹窗 (假设你还有 showEditProductModal，如果没有请告诉我)
+        if(typeof showEditProductModal === 'function') {
+             showEditProductModal(elementSdk.config);
+        } else {
+             alert("商品弹窗函数缺失");
+        }
+    } else if (activeTab === 'posts') {
+        // 🔥 调用刚才新加的漂亮动态弹窗
+        showPostModal(elementSdk.config);
+    }
+};
+
+// ==========================================
+// 👇 [v1.3.6 Fix] 通用删除处理器
+// ==========================================
+window.handleDeleteAsset = async function(type, id) {
+    const confirmMsg = 
+        type === 'service' ? "确定要删除这个服务吗？" :
+        type === 'product' ? "确定要下架这个商品吗？" :
+        "确定要删除这条动态吗？";
+
+    if (!confirm(confirmMsg)) return;
+
+    let dataList = getDataByType(type);
+    // 过滤掉要删除的那一项
+    const newData = dataList.filter(item => item.id !== id);
+    
+    // 更新 LocalStorage
+    // 这里需要先获取全部数据，剔除旧的 type 数据，再合并新的
+    const allData = JSON.parse(localStorage.getItem('gembrow_data') || '[]');
+    const otherData = allData.filter(d => d.type !== type);
+    
+    localStorage.setItem('gembrow_data', JSON.stringify([...otherData, ...newData]));
+    
+    showToast('✅ 删除成功');
+    renderApp();
+};
 
 // ==========================================
 // 👇 [v1.3.6 Beta] 预约详情控制台 (修复逻辑闭环)
